@@ -29,6 +29,12 @@ static struct {
 // Layer update procedure
 static void prv_layer_update_proc_handler(Layer *layer, GContext *ctx) {
   // TODO: Implement some form of drawing function
+  // draw dummy text
+  GRect bounds = layer_get_bounds(layer);
+  bounds.origin.y += bounds.size.h / 2 - 23;
+  graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_draw_text(ctx, "Battery+", fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), bounds,
+    GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -40,6 +46,7 @@ static void prv_initialize(void) {
   // initialize window
   main_data.window = window_create();
   ASSERT(main_data.window);
+  window_set_background_color(main_data.window, GColorBlack);
   Layer *window_root = window_get_root_layer(main_data.window);
   GRect window_bounds = layer_get_bounds(window_root);
   window_stack_push(main_data.window, true);
