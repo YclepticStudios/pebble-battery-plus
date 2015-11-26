@@ -43,6 +43,8 @@ static void prv_layer_update_proc_handler(Layer *layer, GContext *ctx) {
 
 // Initialize the program
 static void prv_initialize(void) {
+  // start background worker
+  app_worker_launch();
   // initialize window
   main_data.window = window_create();
   ASSERT(main_data.window);
