@@ -10,4 +10,19 @@
 #pragma once
 #include <pebble.h>
 
+// Public Constants
+#define SEC_IN_DAY 86400
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// API Implementation
+//
+
+//! Load the past X days of data
+//! @param num_days The number of days of data to load
+void data_load_past_days(uint8_t num_days);
+
+//! Unload data and free memory
+void data_unload(void);
+
+//! Print the data to the console
+void data_print(void);

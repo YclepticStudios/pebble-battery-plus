@@ -38,28 +38,36 @@ static void prv_persist_convert_legacy_data(void) {
 // Save a new node to persistent storage
 static void prv_persist_data_node(DataNode node) {
   // get the current persistent key
-  uint32_t persist_key = DATA_PERSIST_KEY;
-  if (persist_exists(DATA_PERSIST_KEY)) {
-    persist_key = persist_read_int(DATA_PERSIST_KEY);
-  }
-  // index to next location if key is too full
+  uint32_t persist_key = persist_exists(DATA_PERSIST_KEY) ? persist_read_int(DATA_PERSIST_KEY) :
+    DATA_PERSIST_KEY;
+  // index to next storage location if too full
   if (!persist_exists(persist_key) ||
-    persist_get_size(persist_key) + sizeof(DataNode) > PERSIST_DATA_MAX_LENGTH) {
+      persist_get_size(persist_key) + sizeof(DataNode) > PERSIST_DATA_MAX_LENGTH) {
     persist_key++;
     persist_write_int(DATA_PERSIST_KEY, persist_key);
   }
   // read existing data
-  int persist_size = persist_get_size(persist_key);
-  if (!persist_exists(persist_key)) {
-    persist_size = 0;
-  }
-  char *buff = malloc(persist_size + sizeof(DataNode));
-  if (!buff) {
-    return;
-  }
+  int persist_size = persist_exists(persist_key) ? persist_get_size(persist_key) : 0;
+  size_t buff_size = persist_size + sizeof(DataNode);
+  char *buff = malloc(buff_size);
+  if (!buff) { return; }
   persist_read_data(persist_key, buff, persist_size);
+  // write data
   memcpy(&buff[persist_size], &node, sizeof(node));
-  persist_write_data(persist_key, buff, sizeof(buff));
+  uint32_t bytes_written = persist_write_data(persist_key, buff, buff_size);
+  // check for success
+  if (bytes_written < buff_size) {
+    // remove oldest data
+    uint32_t temp_key = persist_key - 1;
+    while (temp_key > DATA_PERSIST_KEY && persist_exists(temp_key)) {
+      temp_key--;
+    }
+    // delete that data
+    persist_delete(temp_key + 1);
+    // attempt to write again
+    persist_write_data(persist_key, buff, buff_size);
+  }
+  free(buff);
 }
 
 
@@ -91,14 +99,14 @@ static void prv_battery_state_change_handler(BatteryChargeState battery_state) {
 static void prv_initialize(void) {
   // create data logging session
   data_log_session = data_logging_create(DATA_LOGGING_TAG, DATA_LOGGING_BYTE_ARRAY,
-                                         sizeof(DataNode), true);
+    sizeof(DataNode), true);
   // subscribe to battery service
   battery_state_service_subscribe(prv_battery_state_change_handler);
 }
 
 // Terminate
 static void prv_terminate(void) {
-  accel_data_service_unsubscribe();
+  battery_state_service_unsubscribe();
 }
 
 // Main entry point

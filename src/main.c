@@ -8,6 +8,7 @@
 // @bugs No known bugs
 
 #include <pebble.h>
+#include "data.h"
 #include "utility.h"
 
 // Main data structure
@@ -45,6 +46,9 @@ static void prv_layer_update_proc_handler(Layer *layer, GContext *ctx) {
 static void prv_initialize(void) {
   // start background worker
   app_worker_launch();
+  // load data
+  data_load_past_days(1);
+  data_print();
   // initialize window
   main_data.window = window_create();
   ASSERT(main_data.window);
@@ -64,6 +68,8 @@ static void prv_terminate(void) {
   // destroy
   layer_destroy(main_data.layer);
   window_destroy(main_data.window);
+  // unload data
+  data_unload();
 }
 
 // Entry point
