@@ -7,6 +7,7 @@
 // @date November 26, 2015
 // @bugs No known bugs
 
+#include <pebble.h>
 #include "data.h"
 #include "utility.h"
 
@@ -24,7 +25,7 @@ typedef struct DataNode {
 } __attribute__((__packed__)) DataNode;
 
 // Main variables
-static DataNode *head_node = NULL;
+static DataNode *head_node = NULL; // Newest at start
 static int32_t charge_rate;
 
 
@@ -57,7 +58,23 @@ static void prv_list_add_node_end(DataNode *node) {
 //
 
 // Get the estimated time remaining as a formatted string
-void data_get_time_remaining(char *buff);
+void data_get_time_remaining(char *buff, uint16_t length) {
+  // get data
+  DataNode tmp_node;
+  if (!head_node) {
+    BatteryChargeState bat_state = battery_state_service_peek();
+    tmp_node.epoch = time(NULL);
+    tmp_node.percent = bat_state.charge_percent;
+  } else {
+    tmp_node = *head_node;
+  }
+  // calculate time remaining
+  int32_t sec_remaining = tmp_node.epoch + tmp_node.percent * charge_rate - time(NULL);
+  int days = sec_remaining / SEC_IN_DAY;
+  int hrs = sec_remaining % SEC_IN_DAY / SEC_IN_HR;
+  // format and print
+  snprintf(buff, length, "%d days %d hours", days, hrs);
+}
 
 // Load the past X days of data
 void data_load_past_days(uint8_t num_days) {

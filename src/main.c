@@ -32,9 +32,15 @@ static void prv_layer_update_proc_handler(Layer *layer, GContext *ctx) {
   // TODO: Implement some form of drawing function
   // draw dummy text
   GRect bounds = layer_get_bounds(layer);
-  bounds.origin.y += bounds.size.h / 2 - 23;
+  bounds.origin.y = bounds.size.h / 2 - 23;
   graphics_context_set_text_color(ctx, GColorWhite);
   graphics_draw_text(ctx, "Battery+", fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), bounds,
+    GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+  // draw time remaining
+  char buff[64];
+  data_get_time_remaining(buff, sizeof(buff));
+  bounds.origin.y = bounds.size.h * 3 / 4 - 15;
+  graphics_draw_text(ctx, buff, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), bounds,
     GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 }
 

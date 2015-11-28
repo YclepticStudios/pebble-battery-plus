@@ -12,6 +12,8 @@
 
 // Public Constants
 #define SEC_IN_DAY 86400
+#define SEC_IN_HR 3600
+#define SEC_IN_MIN 60
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // API Implementation
@@ -19,7 +21,8 @@
 
 //! Get the estimated time remaining as a formatted string
 //! @param buff The buffer to write the time string into
-void data_get_time_remaining(char *buff);
+//! @param length The size of the buffer in bytes
+void data_get_time_remaining(char *buff, uint16_t length);
 
 //! Load the past X days of data
 //! @param num_days The number of days of data to load
