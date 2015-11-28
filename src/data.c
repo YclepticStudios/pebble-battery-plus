@@ -11,6 +11,7 @@
 #include "utility.h"
 
 // Constants
+#define STATS_CHARGE_RATE_KEY 999
 #define DATA_PERSIST_KEY 1000
 
 // Main data structure
@@ -24,6 +25,7 @@ typedef struct DataNode {
 
 // Main variables
 static DataNode *head_node = NULL;
+static int32_t charge_rate;
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -54,6 +56,9 @@ static void prv_list_add_node_end(DataNode *node) {
 // API Implementation
 //
 
+// Get the estimated time remaining as a formatted string
+void data_get_time_remaining(char *buff);
+
 // Load the past X days of data
 void data_load_past_days(uint8_t num_days) {
   if (!persist_exists(DATA_PERSIST_KEY)) {
@@ -61,6 +66,8 @@ void data_load_past_days(uint8_t num_days) {
   }
   // unload any current data first
   data_unload();
+  // load current charge rate estimate
+  charge_rate = persist_read_int(STATS_CHARGE_RATE_KEY);
   // prep for data
   uint32_t persist_key = persist_read_int(DATA_PERSIST_KEY);
   uint32_t worker_node_size = sizeof(DataNode) - sizeof(((DataNode*)0)->next);
@@ -108,4 +115,6 @@ void data_print(void) {
       cur_node->percent, cur_node->charging, cur_node->plugged);
     cur_node = cur_node->next;
   }
+  // print charge rate
+  printf("\nCharge Rate: %d", (int)charge_rate);
 }

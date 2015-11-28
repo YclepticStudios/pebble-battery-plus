@@ -17,6 +17,10 @@
 // API Implementation
 //
 
+//! Get the estimated time remaining as a formatted string
+//! @param buff The buffer to write the time string into
+void data_get_time_remaining(char *buff);
+
 //! Load the past X days of data
 //! @param num_days The number of days of data to load
 void data_load_past_days(uint8_t num_days);
