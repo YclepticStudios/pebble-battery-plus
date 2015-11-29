@@ -104,7 +104,7 @@ uint8_t data_get_battery_percent(void) {
 
 // Get the maximum battery life possible with the current discharge rate
 int32_t data_get_max_life(void) {
-  return charge_rate * 100;
+  return charge_rate * (-100);
 }
 
 // Get the current charge rate in seconds per percent (will always be negative since discharging)
