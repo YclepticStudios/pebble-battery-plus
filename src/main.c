@@ -9,6 +9,7 @@
 
 #include <pebble.h>
 #include "data.h"
+#include "drawing.h"
 #include "utility.h"
 
 // Main data structure
@@ -29,19 +30,19 @@ static struct {
 
 // Layer update procedure
 static void prv_layer_update_proc_handler(Layer *layer, GContext *ctx) {
-  // TODO: Implement some form of drawing function
-  // draw dummy text
-  GRect bounds = layer_get_bounds(layer);
-  bounds.origin.y = bounds.size.h / 2 - 23;
-  graphics_context_set_text_color(ctx, GColorWhite);
-  graphics_draw_text(ctx, "Battery+", fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), bounds,
-    GTextOverflowModeFill, GTextAlignmentCenter, NULL);
-  // draw time remaining
-  char buff[64];
-  data_get_time_remaining(buff, sizeof(buff));
-  bounds.origin.y = bounds.size.h * 3 / 4 - 15;
-  graphics_draw_text(ctx, buff, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), bounds,
-    GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+  drawing_render(layer, ctx);
+//  // draw dummy text
+//  GRect bounds = layer_get_bounds(layer);
+//  bounds.origin.y = bounds.size.h / 2 - 23;
+//  graphics_context_set_text_color(ctx, GColorWhite);
+//  graphics_draw_text(ctx, "Battery+", fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), bounds,
+//    GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+//  // draw time remaining
+//  char buff[64];
+//  data_get_time_remaining(buff, sizeof(buff));
+//  bounds.origin.y = bounds.size.h * 3 / 4 - 15;
+//  graphics_draw_text(ctx, buff, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), bounds,
+//    GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -54,7 +55,6 @@ static void prv_initialize(void) {
   app_worker_launch();
   // load data
   data_load_past_days(1);
-  data_print();
   // initialize window
   main_data.window = window_create();
   ASSERT(main_data.window);
@@ -67,6 +67,8 @@ static void prv_initialize(void) {
   ASSERT(main_data.layer);
   layer_set_update_proc(main_data.layer, prv_layer_update_proc_handler);
   layer_add_child(window_root, main_data.layer);
+  // initialize drawing
+  drawing_initialize(main_data.layer);
 }
 
 // Terminate the program

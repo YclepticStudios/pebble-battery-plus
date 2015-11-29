@@ -24,6 +24,18 @@
 //! @param length The size of the buffer in bytes
 void data_get_time_remaining(char *buff, uint16_t length);
 
+//! Get the current battery percentage (this is an estimate of the exact value)
+//! @return An estimate of the current exact battery percent
+uint8_t data_get_battery_percent(void);
+
+//! Get the maximum battery life possible with the current discharge rate
+//! @return The maximum seconds of battery life
+int32_t data_get_max_life(void);
+
+//! Get the current charge rate in seconds per percent (will always be negative since discharging)
+//! @return The current charge rate
+int32_t data_get_charge_rate(void);
+
 //! Load the past X days of data
 //! @param num_days The number of days of data to load
 void data_load_past_days(uint8_t num_days);

@@ -33,6 +33,22 @@ static int32_t charge_rate;
 // Private Functions
 //
 
+// Get the latest data node (returns the current battery value if no nodes)
+static DataNode prv_get_latest_node(void) {
+  DataNode tmp_node;
+  if (!head_node) {
+    BatteryChargeState bat_state = battery_state_service_peek();
+    tmp_node.epoch = time(NULL);
+    tmp_node.percent = bat_state.charge_percent;
+    tmp_node.charging = bat_state.is_charging;
+    tmp_node.plugged = bat_state.is_plugged;
+    tmp_node.next = NULL;
+  } else {
+    tmp_node = *head_node;
+  }
+  return tmp_node;
+}
+
 // Add node to start of linked list
 static void prv_list_add_node_start(DataNode *node) {
   node->next = head_node;
@@ -59,21 +75,41 @@ static void prv_list_add_node_end(DataNode *node) {
 
 // Get the estimated time remaining as a formatted string
 void data_get_time_remaining(char *buff, uint16_t length) {
-  // get data
-  DataNode tmp_node;
-  if (!head_node) {
-    BatteryChargeState bat_state = battery_state_service_peek();
-    tmp_node.epoch = time(NULL);
-    tmp_node.percent = bat_state.charge_percent;
-  } else {
-    tmp_node = *head_node;
-  }
+  // get latest node
+  DataNode tmp_node = prv_get_latest_node();
   // calculate time remaining
   int32_t sec_remaining = tmp_node.epoch + tmp_node.percent * charge_rate - time(NULL);
   int days = sec_remaining / SEC_IN_DAY;
   int hrs = sec_remaining % SEC_IN_DAY / SEC_IN_HR;
   // format and print
   snprintf(buff, length, "%d days %d hours", days, hrs);
+}
+
+// Get the current battery percentage (this is an estimate of the exact value)
+uint8_t data_get_battery_percent(void) {
+  // get latest node
+  DataNode tmp_node = prv_get_latest_node();
+  // calculate exact percent
+  int32_t percent = tmp_node.percent + (time(NULL) - tmp_node.epoch) / charge_rate;
+  if (percent > tmp_node.percent) {
+    percent = tmp_node.percent;
+  } else if (percent <= tmp_node.percent - 10) {
+    percent = tmp_node.percent - 9;
+  }
+  if (percent < 0) {
+    percent = 0;
+  }
+  return percent;
+}
+
+// Get the maximum battery life possible with the current discharge rate
+int32_t data_get_max_life(void) {
+  return charge_rate * 100;
+}
+
+// Get the current charge rate in seconds per percent (will always be negative since discharging)
+int32_t data_get_charge_rate(void) {
+  return charge_rate;
 }
 
 // Load the past X days of data
