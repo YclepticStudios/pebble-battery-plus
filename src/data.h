@@ -22,7 +22,11 @@
 //! Get the estimated time remaining as a formatted string
 //! @param buff The buffer to write the time string into
 //! @param length The size of the buffer in bytes
-void data_get_time_remaining(char *buff, uint16_t length);
+void data_get_formated_time_remaining(char *buff, uint16_t length);
+
+//! Get the estimated time remaining in seconds
+//! @return The number of seconds of battery life remaining
+int32_t data_get_life_remaining(void);
 
 //! Get the current battery percentage (this is an estimate of the exact value)
 //! @return An estimate of the current exact battery percent

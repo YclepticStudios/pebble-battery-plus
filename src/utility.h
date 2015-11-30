@@ -16,8 +16,10 @@
 //! Compatibility functions for Aplite
 #ifdef PBL_SDK_2
 #define GEdgeInsets1(value) value
+#define GEdgeInsets3(t, rl, b) t
 GRect grect_inset(GRect bounds, int16_t inset);
 static const uint8_t GOvalScaleModeFillCircle = 0;
+static const uint8_t GOvalScaleModeFitCircle = 1;
 void graphics_fill_radial(GContext *ctx, GRect bounds, uint8_t fill_mode, int16_t inset,
                           int32_t angle_start, int32_t angle_end);
 //! Fill GRect with "grey" on Aplite

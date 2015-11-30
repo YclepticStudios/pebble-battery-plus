@@ -140,14 +140,14 @@ static void prv_first_launch(void) {
   WatchInfoModel watch_model = watch_info_get_model();
   switch (watch_model) {
     case WATCH_INFO_MODEL_PEBBLE_TIME_STEEL:
-      charge_rate = 10 * SEC_IN_DAY / 100;
+      charge_rate = -10 * SEC_IN_DAY / 100;
       break;
     case WATCH_INFO_MODEL_PEBBLE_TIME_ROUND_14:
     case WATCH_INFO_MODEL_PEBBLE_TIME_ROUND_20:
-      charge_rate = 2 * SEC_IN_DAY / 100;
+      charge_rate = -2 * SEC_IN_DAY / 100;
       break;
     default:
-      charge_rate = 7 * SEC_IN_DAY / 100;
+      charge_rate = -7 * SEC_IN_DAY / 100;
   }
   persist_write_int(STATS_CHARGE_RATE_KEY, charge_rate);
   // set dummy last_node in an impossible configuration to ensure a battery update call

@@ -12,18 +12,21 @@
 #include "data.h"
 #include "utility.h"
 
+// Data constants
+#define LEVEL_LOW_THRESH_SEC 4 * SEC_IN_HR
+#define LEVEL_MED_THRESH_SEC SEC_IN_DAY
 // Drawing constants
 #define COLOR_BACKGROUND PBL_IF_COLOR_ELSE(GColorDarkGray, GColorBlack)
-#define COLOR_DISK_FILL PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite)
 #define COLOR_DISK_STROKE GColorBlack
 #define COLOR_FOREGROUND GColorBlack
-#define COLOR_RING_4HR PBL_IF_COLOR_ELSE(GColorRed, GColorWhite)
-#define COLOR_RING_1DAY PBL_IF_COLOR_ELSE(GColorYellow, GColorWhite)
+#define COLOR_RING_LOW PBL_IF_COLOR_ELSE(GColorRed, GColorWhite)
+#define COLOR_RING_MED PBL_IF_COLOR_ELSE(GColorYellow, GColorWhite)
 #define COLOR_RING_NORM PBL_IF_COLOR_ELSE(GColorGreen, GColorWhite)
 #define RING_WIDTH PBL_IF_ROUND_ELSE(21, 19)
 #define CENTER_STROKE_WIDTH 4
-#define CENTER_CORNER_RAD_1 PBL_IF_ROUND_ELSE(90, 5)
-#define CENTER_CORNER_RAD_2 PBL_IF_ROUND_ELSE(90, 3)
+#define CENTER_CORNER_RAD_1 PBL_IF_ROUND_ELSE(0, 5)
+#define CENTER_CORNER_RAD_2 PBL_IF_ROUND_ELSE(0, 3)
+#define CENTER_TOP_TEXT_OFFSET PBL_IF_ROUND_ELSE(6, 2)
 #define ANI_DURATION 300
 #define STARTUP_ANI_DELAY 550
 
@@ -41,6 +44,66 @@ static struct {
 // Private Functions
 //
 
+// Render battery percent
+static void prv_render_battery_percent(GRect bounds, GContext *ctx) {
+  // draw background
+  GRect back_bounds = drawing_data.center_bounds;
+  back_bounds.size.h /= 2;
+  int32_t life_remaining_sec = data_get_life_remaining();
+  GColor back_color = COLOR_RING_NORM;
+  if (life_remaining_sec < LEVEL_LOW_THRESH_SEC) {
+    back_color = COLOR_RING_LOW;
+  } else if (life_remaining_sec < LEVEL_MED_THRESH_SEC) {
+    back_color = COLOR_RING_MED;
+  }
+  graphics_context_set_fill_color(ctx, COLOR_DISK_STROKE);
+  graphics_fill_rect(ctx, grect_inset(drawing_data.center_bounds,
+    GEdgeInsets1(-CENTER_STROKE_WIDTH / 2)), CENTER_CORNER_RAD_1, GCornersAll);
+  graphics_context_set_fill_color(ctx, back_color);
+  graphics_fill_rect(ctx, grect_inset(back_bounds, GEdgeInsets1(CENTER_STROKE_WIDTH / 2)),
+    CENTER_CORNER_RAD_2, GCornersTop);
+  // if done animating
+  if (!animation_check_scheduled(&drawing_data.center_bounds)) {
+    // draw text
+    char buff[4];
+    snprintf(buff, sizeof(buff), "%d", data_get_battery_percent());
+    back_bounds.origin.y += CENTER_TOP_TEXT_OFFSET;
+    graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
+    graphics_draw_text(ctx, buff, fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49),
+      back_bounds, GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+  }
+}
+
+// Render time remaining
+static void prv_render_time_remaining(GRect bounds, GContext *ctx) {
+  // draw background
+  GRect back_bounds = drawing_data.center_bounds;
+  back_bounds.size.h /= 2;
+  int32_t life_remaining_sec = data_get_life_remaining();
+  GColor back_color = COLOR_RING_NORM;
+  if (life_remaining_sec < LEVEL_LOW_THRESH_SEC) {
+    back_color = COLOR_RING_LOW;
+  } else if (life_remaining_sec < LEVEL_MED_THRESH_SEC) {
+    back_color = COLOR_RING_MED;
+  }
+  graphics_context_set_fill_color(ctx, COLOR_DISK_STROKE);
+  graphics_fill_rect(ctx, grect_inset(drawing_data.center_bounds,
+    GEdgeInsets1(-CENTER_STROKE_WIDTH / 2)), CENTER_CORNER_RAD_1, GCornersAll);
+  graphics_context_set_fill_color(ctx, back_color);
+  graphics_fill_rect(ctx, grect_inset(back_bounds, GEdgeInsets1(CENTER_STROKE_WIDTH / 2)),
+    CENTER_CORNER_RAD_2, GCornersTop);
+  // if done animating
+  if (!animation_check_scheduled(&drawing_data.center_bounds)) {
+    // draw text
+    char buff[4];
+    snprintf(buff, sizeof(buff), "%d", data_get_battery_percent());
+    back_bounds.origin.y += CENTER_TOP_TEXT_OFFSET;
+    graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
+    graphics_draw_text(ctx, buff, fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49),
+      back_bounds, GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+  }
+}
+
 // Render progress ring and grey central disk
 static void prv_render_ring(GRect bounds, GContext *ctx) {
   // calculate ring bounds size
@@ -50,21 +113,32 @@ static void prv_render_ring(GRect bounds, GContext *ctx) {
   bounds.origin.y += bounds.size.h / 2 - radius;
   bounds.size.w = bounds.size.h = radius * 2;
   // draw rings
-  graphics_context_set_fill_color(ctx, COLOR_RING_4HR);
+  int16_t small_side = drawing_data.center_bounds.size.h < drawing_data.center_bounds.size.w ?
+    drawing_data.center_bounds.size.h : drawing_data.center_bounds.size.w;
+  radius = radius - small_side / 2;
+  graphics_context_set_fill_color(ctx, COLOR_RING_LOW);
   graphics_fill_radial(ctx, bounds, GOvalScaleModeFillCircle, radius, 0,
-    drawing_data.ring_4hr_angle + 10);
-  graphics_context_set_fill_color(ctx, COLOR_RING_1DAY);
+    drawing_data.ring_4hr_angle);
+  graphics_context_set_fill_color(ctx, COLOR_RING_MED);
   graphics_fill_radial(ctx, bounds, GOvalScaleModeFillCircle, radius,
-    drawing_data.ring_4hr_angle, drawing_data.ring_1day_angle + 10);
+    drawing_data.ring_4hr_angle, drawing_data.ring_1day_angle);
   graphics_context_set_fill_color(ctx, COLOR_RING_NORM);
   graphics_fill_radial(ctx, bounds, GOvalScaleModeFillCircle, radius,
     drawing_data.ring_1day_angle, drawing_data.ring_level_angle);
-  // draw center
+  graphics_context_set_fill_color(ctx, COLOR_BACKGROUND);
+  graphics_fill_radial(ctx, bounds, GOvalScaleModeFillCircle, radius,
+    drawing_data.ring_level_angle, TRIG_MAX_ANGLE);
+  // draw center border
   graphics_context_set_fill_color(ctx, COLOR_DISK_STROKE);
-  graphics_fill_rect(ctx, drawing_data.center_bounds, CENTER_CORNER_RAD_1, GCornersAll);
-  graphics_context_set_fill_color(ctx, COLOR_DISK_FILL);
-  graphics_fill_rect(ctx, grect_inset(drawing_data.center_bounds,
-    GEdgeInsets1(CENTER_STROKE_WIDTH)), CENTER_CORNER_RAD_2, GCornersAll);
+  graphics_fill_radial(ctx, grect_inset(drawing_data.center_bounds,
+    GEdgeInsets1(-CENTER_STROKE_WIDTH / 2)), GOvalScaleModeFitCircle, CENTER_STROKE_WIDTH, 0,
+    TRIG_MAX_ANGLE);
+//  // draw center
+//  graphics_context_set_fill_color(ctx, COLOR_DISK_STROKE);
+//  graphics_fill_rect(ctx, drawing_data.center_bounds, CENTER_CORNER_RAD_1, GCornersAll);
+//  graphics_context_set_fill_color(ctx, COLOR_DISK_FILL);
+//  graphics_fill_rect(ctx, grect_inset(drawing_data.center_bounds,
+//    GEdgeInsets1(CENTER_STROKE_WIDTH)), CENTER_CORNER_RAD_2, GCornersAll);
 }
 
 // Animation refresh callback
@@ -81,17 +155,17 @@ static void prv_animation_refresh_handler(void) {
 void drawing_convert_to_dashboard_layout(uint32_t delay) {
   // calculate angles for ring
   int32_t max_life_sec = data_get_max_life();
-  int32_t angle_4hr = TRIG_MAX_ANGLE * 4 * SEC_IN_HR / max_life_sec;
-  int32_t angle_1day = (int64_t)TRIG_MAX_ANGLE * SEC_IN_DAY / max_life_sec;
+  int32_t angle_low = TRIG_MAX_ANGLE * LEVEL_LOW_THRESH_SEC / max_life_sec;
+  int32_t angle_med = (int64_t)TRIG_MAX_ANGLE * LEVEL_MED_THRESH_SEC / max_life_sec;
   int32_t angle_level = TRIG_MAX_ANGLE * data_get_battery_percent() / 100;
-  angle_4hr = angle_level < angle_4hr ? angle_level : angle_4hr;
-  angle_1day = angle_level < angle_1day ? angle_level : angle_1day;
+  angle_low = angle_level < angle_low ? angle_level : angle_low;
+  angle_med = angle_level < angle_med ? angle_level : angle_med;
   // animate to new values
   animation_grect_start(&drawing_data.center_bounds, grect_inset(layer_get_bounds(
     drawing_data.layer), GEdgeInsets1(RING_WIDTH)), ANI_DURATION, delay, CurveSinEaseOut);
-  animation_int32_start(&drawing_data.ring_4hr_angle, angle_4hr, ANI_DURATION, delay,
+  animation_int32_start(&drawing_data.ring_4hr_angle, angle_low, ANI_DURATION, delay,
     CurveSinEaseOut);
-  animation_int32_start(&drawing_data.ring_1day_angle, angle_1day, ANI_DURATION, delay,
+  animation_int32_start(&drawing_data.ring_1day_angle, angle_med, ANI_DURATION, delay,
     CurveSinEaseOut);
   animation_int32_start(&drawing_data.ring_level_angle, angle_level, ANI_DURATION, delay,
     CurveSinEaseOut);
@@ -101,11 +175,20 @@ void drawing_convert_to_dashboard_layout(uint32_t delay) {
 void drawing_render(Layer *layer, GContext *ctx) {
   // get properties
   GRect bounds = layer_get_bounds(layer);
-  // draw background
-  graphics_context_set_fill_color(ctx, COLOR_BACKGROUND);
-  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
+#ifdef PBL_ROUND
+  // draw center content
+  prv_render_battery_percent(bounds, ctx);
+  prv_render_time_remaining(bounds, ctx);
   // draw rings
   prv_render_ring(bounds, ctx);
+#else
+  // draw rings
+  prv_render_ring(bounds, ctx);
+  // draw center content
+  prv_render_battery_percent(bounds, ctx);
+  prv_render_time_remaining(bounds, ctx);
+#endif
+
 }
 
 //! Initialize drawing variables

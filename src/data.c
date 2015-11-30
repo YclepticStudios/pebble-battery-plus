@@ -75,14 +75,20 @@ static void prv_list_add_node_end(DataNode *node) {
 
 // Get the estimated time remaining as a formatted string
 void data_get_time_remaining(char *buff, uint16_t length) {
-  // get latest node
-  DataNode tmp_node = prv_get_latest_node();
   // calculate time remaining
-  int32_t sec_remaining = tmp_node.epoch + tmp_node.percent * charge_rate - time(NULL);
+  int32_t sec_remaining = data_get_life_remaining();
   int days = sec_remaining / SEC_IN_DAY;
   int hrs = sec_remaining % SEC_IN_DAY / SEC_IN_HR;
   // format and print
   snprintf(buff, length, "%d days %d hours", days, hrs);
+}
+
+// Get the estimated time remaining in seconds
+int32_t data_get_life_remaining(void) {
+  // get latest node
+  DataNode tmp_node = prv_get_latest_node();
+  // calculate time remaining
+  return tmp_node.epoch + tmp_node.percent * -charge_rate - time(NULL);
 }
 
 // Get the current battery percentage (this is an estimate of the exact value)
