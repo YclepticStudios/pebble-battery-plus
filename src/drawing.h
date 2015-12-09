@@ -15,7 +15,6 @@
 #define MENU_CELL_COUNT 5
 #define MENU_CELL_HEIGHT_TALL 65
 #define COLOR_MENU_BACKGROUND GColorMelon
-#define COLOR_MENU_FOREGROUND GColorDarkGreen
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -25,6 +24,13 @@
 //! Move layout to dashboard layout
 //! @param delay The delay before starting the animation
 void drawing_convert_to_dashboard_layout(uint32_t delay);
+
+//! Render a MenuLayer cell
+//! @param menu The MenuLayer in question
+//! @param layer The layer being rendered onto
+//! @param ctx The cell's drawing context
+//! @param index The cell's index in the menu
+void drawing_render_cell(MenuLayer *menu, Layer *layer, GContext *ctx, MenuIndex index);
 
 //! Render everything on the screen
 //! @param layer The layer being rendered onto

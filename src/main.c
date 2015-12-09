@@ -37,10 +37,7 @@ static void prv_layer_update_proc_handler(Layer *layer, GContext *ctx) {
 // MenuLayer row draw callback
 static void prv_menu_row_draw_handler(GContext *ctx, const Layer *layer, MenuIndex *index,
                                       void *context) {
-  // TODO: Implement drawing functions for cells
-  graphics_context_set_text_color(ctx, GColorBlack);
-  graphics_draw_text(ctx, "Cell Text", fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD),
-    layer_get_bounds(layer), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+  drawing_render_cell(main_data.menu, (Layer*)layer, ctx, *index);
 }
 
 // MenuLayer get row count callback
@@ -77,7 +74,7 @@ static void prv_initialize(void) {
   main_data.menu = menu_layer_create(grect_inset(window_bounds, GEdgeInsets1(RING_WIDTH)));
   ASSERT(main_data.menu);
   menu_layer_set_click_config_onto_window(main_data.menu, main_data.window);
-  menu_layer_set_highlight_colors(main_data.menu, COLOR_MENU_BACKGROUND, COLOR_MENU_FOREGROUND);
+  menu_layer_set_highlight_colors(main_data.menu, COLOR_MENU_BACKGROUND, GColorBlack);
   menu_layer_set_center_focused(main_data.menu, true);
   menu_layer_set_callbacks(main_data.menu, NULL, (MenuLayerCallbacks) {
     .draw_row = prv_menu_row_draw_handler,
