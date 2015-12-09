@@ -44,16 +44,6 @@ static struct {
 
 // Render battery percent cell large
 static void prv_cell_render_percent(GRect bounds, GContext *ctx, bool large) {
-//  // draw background
-//  int32_t life_remaining_sec = data_get_life_remaining();
-//  GColor back_color = COLOR_RING_NORM;
-//  if (life_remaining_sec < LEVEL_LOW_THRESH_SEC) {
-//    back_color = COLOR_RING_LOW;
-//  } else if (life_remaining_sec < LEVEL_MED_THRESH_SEC) {
-//    back_color = COLOR_RING_MED;
-//  }
-//  graphics_context_set_fill_color(ctx, back_color);
-//  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
   // get fonts
   GFont digit_font, symbol_font;
   if (large) {
@@ -83,13 +73,6 @@ static void prv_cell_render_percent(GRect bounds, GContext *ctx, bool large) {
     GTextAlignmentCenter, NULL);
   graphics_draw_text(ctx, "%", symbol_font, symbol_bounds, GTextOverflowModeFill,
     GTextAlignmentCenter, NULL);
-
-//  bounds.origin.y += 2;
-//  graphics_draw_text(ctx, buff, fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS),
-//    bounds, GTextOverflowModeFill, GTextAlignmentCenter, NULL);
-//  // draw percent symbol
-//  graphics_draw_text(ctx, "%", fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
-//    bounds, GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 }
 
 
