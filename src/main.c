@@ -15,7 +15,8 @@
 // Main data structure
 static struct {
   Window      *window;        //< The base window for the application
-  Layer       *layer;         //< A pointer to the layer on which everything is drawn
+  MenuLayer   *menu;          //< The main menu layer for the application
+  Layer       *layer;         //< The drawing layer for the progress ring
 } main_data;
 
 
@@ -33,6 +34,29 @@ static void prv_layer_update_proc_handler(Layer *layer, GContext *ctx) {
   drawing_render(layer, ctx);
 }
 
+// MenuLayer row draw callback
+static void prv_menu_row_draw_handler(GContext *ctx, const Layer *layer, MenuIndex *index,
+                                      void *context) {
+  // TODO: Implement drawing functions for cells
+  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_draw_text(ctx, "Cell Text", fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD),
+    layer_get_bounds(layer), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+}
+
+// MenuLayer get row count callback
+static uint16_t prv_menu_get_row_count_handler(MenuLayer *menu, uint16_t index, void *context) {
+  return MENU_CELL_COUNT;
+}
+
+// MenuLayer get row height callback
+static int16_t prv_menu_get_row_height_handler(MenuLayer *menu, MenuIndex *index, void *context) {
+  if (menu_layer_get_selected_index(main_data.menu).row == index->row) {
+    return MENU_CELL_HEIGHT_TALL;
+  }
+  GRect menu_bounds = layer_get_bounds(menu_layer_get_layer(menu));
+  return (menu_bounds.size.h - MENU_CELL_HEIGHT_TALL) / 2;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Loading and Unloading
 //
@@ -46,10 +70,21 @@ static void prv_initialize(void) {
   // initialize window
   main_data.window = window_create();
   ASSERT(main_data.window);
-  window_set_background_color(main_data.window, GColorShockingPink);
   Layer *window_root = window_get_root_layer(main_data.window);
   GRect window_bounds = layer_get_bounds(window_root);
   window_stack_push(main_data.window, true);
+  // initialize menu layer
+  main_data.menu = menu_layer_create(grect_inset(window_bounds, GEdgeInsets1(RING_WIDTH)));
+  ASSERT(main_data.menu);
+  menu_layer_set_click_config_onto_window(main_data.menu, main_data.window);
+  menu_layer_set_highlight_colors(main_data.menu, COLOR_MENU_BACKGROUND, COLOR_MENU_FOREGROUND);
+  menu_layer_set_center_focused(main_data.menu, true);
+  menu_layer_set_callbacks(main_data.menu, NULL, (MenuLayerCallbacks) {
+    .draw_row = prv_menu_row_draw_handler,
+    .get_num_rows = prv_menu_get_row_count_handler,
+    .get_cell_height = prv_menu_get_row_height_handler,
+  });
+  layer_add_child(window_root, menu_layer_get_layer(main_data.menu));
   // initialize tile layer
   main_data.layer = layer_create(window_bounds);
   ASSERT(main_data.layer);
@@ -63,6 +98,7 @@ static void prv_initialize(void) {
 static void prv_terminate(void) {
   // destroy
   layer_destroy(main_data.layer);
+  menu_layer_destroy(main_data.menu);
   window_destroy(main_data.window);
   // unload data
   data_unload();
