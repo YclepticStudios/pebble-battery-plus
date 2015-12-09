@@ -15,7 +15,7 @@
 // Main data structure
 static struct {
   Window      *window;        //< The base window for the application
-  Layer       *layer;         //< Layer onto which everything is drawn
+  Layer       *layer;         //< A pointer to the layer on which everything is drawn
 } main_data;
 
 
@@ -31,18 +31,6 @@ static struct {
 // Layer update procedure
 static void prv_layer_update_proc_handler(Layer *layer, GContext *ctx) {
   drawing_render(layer, ctx);
-//  // draw dummy text
-//  GRect bounds = layer_get_bounds(layer);
-//  bounds.origin.y = bounds.size.h / 2 - 23;
-//  graphics_context_set_text_color(ctx, GColorWhite);
-//  graphics_draw_text(ctx, "Battery+", fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD), bounds,
-//    GTextOverflowModeFill, GTextAlignmentCenter, NULL);
-//  // draw time remaining
-//  char buff[64];
-//  data_get_time_remaining(buff, sizeof(buff));
-//  bounds.origin.y = bounds.size.h * 3 / 4 - 15;
-//  graphics_draw_text(ctx, buff, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), bounds,
-//    GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -58,11 +46,11 @@ static void prv_initialize(void) {
   // initialize window
   main_data.window = window_create();
   ASSERT(main_data.window);
-  window_set_background_color(main_data.window, GColorBlack);
+  window_set_background_color(main_data.window, GColorShockingPink);
   Layer *window_root = window_get_root_layer(main_data.window);
   GRect window_bounds = layer_get_bounds(window_root);
   window_stack_push(main_data.window, true);
-  // initialize layer
+  // initialize tile layer
   main_data.layer = layer_create(window_bounds);
   ASSERT(main_data.layer);
   layer_set_update_proc(main_data.layer, prv_layer_update_proc_handler);

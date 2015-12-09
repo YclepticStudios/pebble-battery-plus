@@ -19,11 +19,11 @@
 //! @param delay The delay before starting the animation
 void drawing_convert_to_dashboard_layout(uint32_t delay);
 
-//! Render everything to the screen
+//! Render everything on the screen
 //! @param layer The layer being rendered onto
 //! @param ctx The layer's drawing context
 void drawing_render(Layer *layer, GContext *ctx);
 
 //! Initialize drawing variables
-//! @param layer Base drawing layer for sizes
+//! @param layer Pointer to layer onto which everything is drawn
 void drawing_initialize(Layer *layer);
