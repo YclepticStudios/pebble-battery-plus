@@ -42,8 +42,26 @@ static struct {
 // Cell Rendering Functions
 //
 
+// Render large cell header
+static void prv_cell_render_header(GRect bounds, GContext *ctx, char *text) {
+  // get header bounds
+  GRect header_bounds = bounds;
+  header_bounds.origin.y = -2;
+  // draw header
+  GTextAttributes *header_attr = graphics_text_attributes_create();
+  graphics_text_attributes_enable_screen_text_flow(header_attr, RING_WIDTH + 5);
+  graphics_context_set_text_color(ctx, GColorWindsorTan);
+  graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_14), header_bounds,
+    GTextOverflowModeFill, GTextAlignmentLeft, header_attr);
+  graphics_text_attributes_destroy(header_attr);
+}
+
 // Render battery percent cell large
 static void prv_cell_render_percent(GRect bounds, GContext *ctx, bool large) {
+  // draw header
+  if (large) {
+    prv_cell_render_header(bounds, ctx, "Percent");
+  }
   // get fonts
   GFont digit_font, symbol_font;
   if (large) {

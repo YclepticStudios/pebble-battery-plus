@@ -14,7 +14,7 @@
 #define RING_WIDTH PBL_IF_ROUND_ELSE(21, 16)
 #define MENU_CELL_COUNT 5
 #define MENU_CELL_HEIGHT_TALL 65
-#define COLOR_MENU_BACKGROUND GColorMelon
+#define COLOR_MENU_BACKGROUND GColorRajah
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
