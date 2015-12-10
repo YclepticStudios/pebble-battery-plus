@@ -12,6 +12,7 @@
 #include "utility.h"
 
 // Constants
+#define PERSIST_DATA_LENGTH 256
 #define STATS_CHARGE_RATE_KEY 999
 #define DATA_PERSIST_KEY 1000
 
@@ -35,18 +36,20 @@ static int32_t charge_rate;
 
 // Get the latest data node (returns the current battery value if no nodes)
 static DataNode prv_get_latest_node(void) {
-  DataNode tmp_node;
-  if (!head_node) {
-    BatteryChargeState bat_state = battery_state_service_peek();
-    tmp_node.epoch = time(NULL);
-    tmp_node.percent = bat_state.charge_percent;
-    tmp_node.charging = bat_state.is_charging;
-    tmp_node.plugged = bat_state.is_plugged;
-    tmp_node.next = NULL;
-  } else {
-    tmp_node = *head_node;
+  // get current battery state
+  DataNode cur_node;
+  BatteryChargeState bat_state = battery_state_service_peek();
+  cur_node.epoch = time(NULL);
+  cur_node.percent = bat_state.charge_percent;
+  cur_node.charging = bat_state.is_charging;
+  cur_node.plugged = bat_state.is_plugged;
+  cur_node.next = NULL;
+  // return current state if no last node or not matching with last node
+  if (!head_node || head_node->percent != cur_node.percent ||
+    head_node->charging != cur_node.charging || head_node->plugged != cur_node.plugged) {
+    return cur_node;
   }
-  return tmp_node;
+  return *head_node;
 }
 
 // Add node to start of linked list
@@ -130,7 +133,7 @@ void data_load_past_days(uint8_t num_days) {
   // prep for data
   uint32_t persist_key = persist_read_int(DATA_PERSIST_KEY);
   uint32_t worker_node_size = sizeof(DataNode) - sizeof(((DataNode*)0)->next);
-  char buff[PERSIST_DATA_MAX_LENGTH];
+  char buff[PERSIST_DATA_LENGTH];
   // loop over data
   while (persist_key > DATA_PERSIST_KEY && persist_exists(persist_key)) {
     persist_read_data(persist_key, buff, persist_get_size(persist_key));
@@ -167,11 +170,14 @@ void data_unload(void) {
 }
 
 // Print the data to the console
-void data_print(void) {
+void data_print_csv(void) {
+  // print header
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Epoch,\tPercent,\tCharging,\tPlugged,");
+  // print body
   DataNode *cur_node = head_node;
   while (cur_node) {
-    printf("\nEpoch: %d\nPercent: %d\nCharging: %d\nPlugged: %d\n", cur_node->epoch,
-      cur_node->percent, cur_node->charging, cur_node->plugged);
+    app_log(APP_LOG_LEVEL_INFO, "", 0, "%d,\t%d,\t%d,\t%d,", cur_node->epoch, cur_node->percent,
+      cur_node->charging, cur_node->plugged);
     cur_node = cur_node->next;
   }
   // print charge rate

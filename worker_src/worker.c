@@ -11,6 +11,7 @@
 #include <pebble_worker.h>
 
 // Constants
+#define PERSIST_DATA_LENGTH 256
 #define STATS_CHARGE_RATE_KEY 999
 #define DATA_PERSIST_KEY 1000
 #define DATA_LOGGING_TAG 5155346
@@ -29,6 +30,7 @@ DataLoggingSessionRef data_log_session;
 
 // Last battery state node
 DataNode last_node;
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Private Functions
@@ -71,9 +73,10 @@ static void prv_persist_data_node(DataNode node) {
   uint32_t persist_key = persist_read_int(DATA_PERSIST_KEY);
   int persist_size = persist_exists(persist_key) ? persist_get_size(persist_key) : 0;
   // index to next storage location if too full
-  if (persist_size + sizeof(DataNode) > PERSIST_DATA_MAX_LENGTH) {
+  if (persist_size + sizeof(DataNode) > PERSIST_DATA_LENGTH) {
     persist_key++;
     persist_write_int(DATA_PERSIST_KEY, persist_key);
+    persist_size = 0;
   }
   // read existing data
   size_t buff_size = persist_size + sizeof(DataNode);

@@ -47,5 +47,5 @@ void data_load_past_days(uint8_t num_days);
 //! Unload data and free memory
 void data_unload(void);
 
-//! Print the data to the console
-void data_print(void);
+//! Print the data to the console in CSV format
+void data_print_csv(void);

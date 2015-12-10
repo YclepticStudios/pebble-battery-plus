@@ -63,7 +63,7 @@ static void prv_initialize(void) {
   // start background worker
   app_worker_launch();
   // load data
-  data_load_past_days(1);
+  data_load_past_days(7);
   // initialize window
   main_data.window = window_create();
   ASSERT(main_data.window);
