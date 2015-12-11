@@ -10,6 +10,7 @@
 #include "drawing.h"
 #include "animation/animation.h"
 #include "data.h"
+#include "stdarg.h"
 #include "utility.h"
 
 // Data constants
@@ -23,7 +24,7 @@
 #define COLOR_RING_MED GColorYellow
 #define COLOR_RING_NORM GColorGreen
 #define CENTER_STROKE_WIDTH PBL_IF_ROUND_ELSE(5, 4)
-#define TEXT_TOP_BORDER_PERCENT 0.12
+#define TEXT_TOP_BORDER_FRACTION 3 / 25
 #define ANI_DURATION 300
 #define STARTUP_ANI_DELAY 550
 
@@ -43,54 +44,125 @@ static struct {
 //
 
 // Render large cell header
-static void prv_cell_render_header(GRect bounds, GContext *ctx, char *text) {
+static void prv_render_header_text(GRect bounds, GContext *ctx, bool large, char *text) {
+  // return if in small view
+  if (!large) { return; }
   // get header bounds
   GRect header_bounds = bounds;
   header_bounds.origin.y = -2;
   // draw header
   GTextAttributes *header_attr = graphics_text_attributes_create();
   graphics_text_attributes_enable_screen_text_flow(header_attr, RING_WIDTH + 5);
-  graphics_context_set_text_color(ctx, GColorWindsorTan);
+  graphics_context_set_text_color(ctx, GColorBulgarianRose);
   graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_14), header_bounds,
     GTextOverflowModeFill, GTextAlignmentLeft, header_attr);
   graphics_text_attributes_destroy(header_attr);
 }
 
-// Render battery percent cell large
+// Render rich text with different fonts
+// Arguments are specified as alternating string pointers and fonts (char*, GFont, char*, GFont ...)
+static void prv_render_rich_text(GRect bounds, GContext *ctx, uint8_t num_args, ...) {
+  // get variable arguments
+  va_list a_list_1, a_list_2;
+  va_start(a_list_1, num_args);
+  va_start(a_list_2, num_args);
+  // calculate the rendered size of each string
+  int16_t max_height = 0, tot_width = 0;
+  GRect txt_bounds[num_args / 2];
+  for (uint8_t ii = 0; ii < num_args / 2; ii++) {
+    txt_bounds[ii].size = graphics_text_layout_get_content_size(va_arg(a_list_1, char*),
+      va_arg(a_list_1, GFont), bounds, GTextOverflowModeFill, GTextAlignmentLeft);
+    max_height = max_height > txt_bounds[ii].size.h ? max_height : txt_bounds[ii].size.h;
+    tot_width += txt_bounds[ii].size.w;
+  }
+  // calculate positioning of each string
+  int16_t base_line_y = (bounds.size.h + max_height) / 2 - max_height * TEXT_TOP_BORDER_FRACTION;
+  int16_t left_line_x = (bounds.size.w - tot_width) / 2;
+  for (uint8_t ii = 0; ii < num_args / 2; ii++) {
+    txt_bounds[ii].origin.x = left_line_x;
+    txt_bounds[ii].origin.y = base_line_y - txt_bounds[ii].size.h;
+    left_line_x += txt_bounds[ii].size.w;
+  }
+  // draw each string
+  for (uint8_t ii = 0; ii < num_args / 2; ii++) {
+    graphics_draw_text(ctx, va_arg(a_list_2, char*), va_arg(a_list_2, GFont), txt_bounds[ii],
+      GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+  }
+  // end variable arguments
+  va_end(a_list_1);
+  va_end(a_list_2);
+}
+
+// Render battery percent cell
 static void prv_cell_render_percent(GRect bounds, GContext *ctx, bool large) {
   // draw header
-  if (large) {
-    prv_cell_render_header(bounds, ctx, "Percent");
-  }
+  prv_render_header_text(bounds, ctx, large, "Percent");
   // get fonts
   GFont digit_font, symbol_font;
+  symbol_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
   if (large) {
     digit_font = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
-    symbol_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
   } else {
     digit_font = fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM);
-    symbol_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
   }
   // get text
   char buff[4];
   snprintf(buff, sizeof(buff), "%d", data_get_battery_percent());
-  // calculate bounds
-  GRect digit_bounds, symbol_bounds;
-  digit_bounds.size = graphics_text_layout_get_content_size(buff, digit_font, bounds,
-    GTextOverflowModeFill, GTextAlignmentCenter);
-  symbol_bounds.size = graphics_text_layout_get_content_size(buff, symbol_font, bounds,
-    GTextOverflowModeFill, GTextAlignmentCenter);
-  digit_bounds.origin.x = (bounds.size.w - digit_bounds.size.w) / 2;
-  digit_bounds.origin.y = (bounds.size.h - digit_bounds.size.h) / 2;
-  digit_bounds.origin.y -= digit_bounds.size.h * TEXT_TOP_BORDER_PERCENT;
-  symbol_bounds.origin.x = digit_bounds.origin.x + digit_bounds.size.w;
-  symbol_bounds.origin.y = digit_bounds.origin.y + digit_bounds.size.h - symbol_bounds.size.h;
   // draw text
   graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
-  graphics_draw_text(ctx, buff, digit_font, digit_bounds, GTextOverflowModeFill,
-    GTextAlignmentCenter, NULL);
-  graphics_draw_text(ctx, "%", symbol_font, symbol_bounds, GTextOverflowModeFill,
-    GTextAlignmentCenter, NULL);
+  prv_render_rich_text(bounds, ctx, 6, "   ", symbol_font, buff, digit_font, "%", symbol_font);
+}
+
+// Render time remaining cell
+static void prv_cell_render_time_remaining(GRect bounds, GContext *ctx, bool large) {
+  // draw header
+  prv_render_header_text(bounds, ctx, large, "Remaining");
+  // get fonts
+  GFont digit_font, symbol_font;
+  symbol_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+  if (large) {
+    digit_font = fonts_get_system_font(FONT_KEY_LECO_36_BOLD_NUMBERS);
+  } else {
+    digit_font = fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM);
+  }
+  // calculate time remaining
+  int32_t sec_remaining = data_get_life_remaining();
+  int days = sec_remaining / SEC_IN_DAY;
+  int hrs = sec_remaining % SEC_IN_DAY / SEC_IN_HR;
+  // get text
+  char day_buff[4], hr_buff[4];
+  snprintf(day_buff, sizeof(day_buff), "%d", days);
+  snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
+  // draw text
+  graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
+  prv_render_rich_text(bounds, ctx, 8, day_buff, digit_font, "d ", symbol_font, hr_buff,
+    digit_font, "h", symbol_font);
+}
+
+// Render run time cell
+static void prv_cell_render_run_time(GRect bounds, GContext *ctx, bool large) {
+  // draw header
+  prv_render_header_text(bounds, ctx, large, "Run Time");
+  // get fonts
+  GFont digit_font, symbol_font;
+  symbol_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+  if (large) {
+    digit_font = fonts_get_system_font(FONT_KEY_LECO_36_BOLD_NUMBERS);
+  } else {
+    digit_font = fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM);
+  }
+  // calculate time remaining
+  int32_t sec_run_time = data_get_run_time();
+  int days = sec_run_time / SEC_IN_DAY;
+  int hrs = sec_run_time % SEC_IN_DAY / SEC_IN_HR;
+  // get text
+  char day_buff[4], hr_buff[4];
+  snprintf(day_buff, sizeof(day_buff), "%d", days);
+  snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
+  // draw text
+  graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
+  prv_render_rich_text(bounds, ctx, 8, day_buff, digit_font, "d ", symbol_font, hr_buff,
+    digit_font, "h", symbol_font);
 }
 
 
@@ -200,8 +272,14 @@ void drawing_render_cell(MenuLayer *menu, Layer *layer, GContext *ctx, MenuIndex
   bool selected = menu_layer_get_selected_index(menu).row == index.row;
   // detect cell
   switch (index.row) {
+    case 0:
+      prv_cell_render_run_time(bounds, ctx, selected);
+      break;
     case 1:
       prv_cell_render_percent(bounds, ctx, selected);
+      break;
+    case 2:
+      prv_cell_render_time_remaining(bounds, ctx, selected);
       break;
     default:
       menu_cell_basic_draw(ctx, layer, "<empty>", "unused cell", NULL);

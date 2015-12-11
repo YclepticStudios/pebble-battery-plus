@@ -28,6 +28,10 @@ void data_get_formated_time_remaining(char *buff, uint16_t length);
 //! @return The number of seconds of battery life remaining
 int32_t data_get_life_remaining(void);
 
+//! Get the current run time of the watch in seconds (if no charge data, returns app install time)
+//! @return the number of seconds since the last charge
+int32_t data_get_run_time(void);
+
 //! Get the current battery percentage (this is an estimate of the exact value)
 //! @return An estimate of the current exact battery percent
 uint8_t data_get_battery_percent(void);

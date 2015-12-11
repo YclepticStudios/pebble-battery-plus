@@ -94,6 +94,20 @@ int32_t data_get_life_remaining(void) {
   return tmp_node.epoch + tmp_node.percent * -charge_rate - time(NULL);
 }
 
+// Get the current run time of the watch in seconds (if no charge data, returns app install time)
+int32_t data_get_run_time(void) {
+  // last charge time
+  uint32_t lst_charge_time = time(NULL);
+  // loop over nodes
+  DataNode *cur_node = head_node;
+  while (cur_node && !cur_node->charging) {
+    lst_charge_time = cur_node->epoch;
+    cur_node = cur_node->next;
+  }
+  // return time in seconds
+  return time(NULL) - lst_charge_time;
+}
+
 // Get the current battery percentage (this is an estimate of the exact value)
 uint8_t data_get_battery_percent(void) {
   // get latest node
@@ -121,7 +135,7 @@ int32_t data_get_charge_rate(void) {
   return charge_rate;
 }
 
-// Load the past X days of data
+// Load the past X days of data + at least last charge included
 void data_load_past_days(uint8_t num_days) {
   if (!persist_exists(DATA_PERSIST_KEY)) {
     return;
@@ -135,6 +149,7 @@ void data_load_past_days(uint8_t num_days) {
   uint32_t worker_node_size = sizeof(DataNode) - sizeof(((DataNode*)0)->next);
   char buff[PERSIST_DATA_LENGTH];
   // loop over data
+  bool has_charged_node = false;
   while (persist_key > DATA_PERSIST_KEY && persist_exists(persist_key)) {
     persist_read_data(persist_key, buff, persist_get_size(persist_key));
     for (char *ptr = buff + persist_get_size(persist_key) - worker_node_size; ptr >= buff;
@@ -143,12 +158,12 @@ void data_load_past_days(uint8_t num_days) {
       DataNode *new_node = MALLOC(sizeof(DataNode));
       memcpy(new_node, ptr, worker_node_size);
       new_node->next = NULL;
+      prv_list_add_node_end(new_node);
       // check if passed the number of days
-      if (new_node->epoch < time(NULL) - num_days * SEC_IN_DAY) {
-        free(new_node);
+      has_charged_node = has_charged_node || new_node->charging;
+      if (new_node->epoch < time(NULL) - num_days * SEC_IN_DAY && has_charged_node) {
         return;
       }
-      prv_list_add_node_end(new_node);
     }
     // index key
     persist_key--;
