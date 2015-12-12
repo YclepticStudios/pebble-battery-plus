@@ -93,6 +93,29 @@ static void prv_render_rich_text(GRect bounds, GContext *ctx, uint8_t num_args, 
   va_end(a_list_2);
 }
 
+// Render current clock time
+static void prv_cell_render_clock_time(GRect bounds, GContext *ctx, bool large) {
+  // draw header
+  prv_render_header_text(bounds, ctx, large, "Clock");
+  // get fonts
+  GFont digit_font, symbol_font;
+  symbol_font = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
+  if (large) {
+    digit_font = fonts_get_system_font(FONT_KEY_LECO_32_BOLD_NUMBERS);
+  } else {
+    digit_font = fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM);
+  }
+  // get text
+  char digit_buff[6], symbol_buff[3];
+  time_t t_time = time(NULL);
+  tm *tm_time = localtime(&t_time);
+  strftime(digit_buff, sizeof(digit_buff), "%l:%M", tm_time);
+  strftime(symbol_buff, sizeof(symbol_buff), "%p", tm_time);
+  // draw text
+  graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
+  prv_render_rich_text(bounds, ctx, 4, digit_buff, digit_font, symbol_buff, symbol_font);
+}
+
 // Render battery percent cell
 static void prv_cell_render_percent(GRect bounds, GContext *ctx, bool large) {
   // draw header
@@ -130,7 +153,7 @@ static void prv_cell_render_time_remaining(GRect bounds, GContext *ctx, bool lar
   int days = sec_remaining / SEC_IN_DAY;
   int hrs = sec_remaining % SEC_IN_DAY / SEC_IN_HR;
   // get text
-  char day_buff[4], hr_buff[4];
+  char day_buff[4], hr_buff[3];
   snprintf(day_buff, sizeof(day_buff), "%d", days);
   snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
   // draw text
@@ -156,7 +179,7 @@ static void prv_cell_render_run_time(GRect bounds, GContext *ctx, bool large) {
   int days = sec_run_time / SEC_IN_DAY;
   int hrs = sec_run_time % SEC_IN_DAY / SEC_IN_HR;
   // get text
-  char day_buff[4], hr_buff[4];
+  char day_buff[4], hr_buff[3];
   snprintf(day_buff, sizeof(day_buff), "%d", days);
   snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
   // draw text
@@ -273,12 +296,15 @@ void drawing_render_cell(MenuLayer *menu, Layer *layer, GContext *ctx, MenuIndex
   // detect cell
   switch (index.row) {
     case 0:
-      prv_cell_render_run_time(bounds, ctx, selected);
+      prv_cell_render_clock_time(bounds, ctx, selected);
       break;
     case 1:
-      prv_cell_render_percent(bounds, ctx, selected);
+      prv_cell_render_run_time(bounds, ctx, selected);
       break;
     case 2:
+      prv_cell_render_percent(bounds, ctx, selected);
+      break;
+    case 3:
       prv_cell_render_time_remaining(bounds, ctx, selected);
       break;
     default:
