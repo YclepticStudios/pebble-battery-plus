@@ -32,6 +32,7 @@
 // Drawing variables
 static struct {
   Layer       *layer;             //< A pointer to the layer on which everything is drawn
+  MenuLayer   *menu;              //< A pointer to the menu which contains the information
   GRect       center_bounds;      //< The bounds of the central disk
   int32_t     ring_level_angle;   //< The angle for the start of the green ring
   int32_t     ring_1day_angle;    //< The angle for the start of the yellow ring
@@ -47,15 +48,19 @@ static struct {
 static void prv_render_header_text(GRect bounds, GContext *ctx, bool large, char *text) {
   // return if in small view
   if (!large) { return; }
-  // get header bounds
-  GRect header_bounds = bounds;
-  header_bounds.origin.y = -2;
-  // draw header
-  GTextAttributes *header_attr = graphics_text_attributes_create();
-  graphics_text_attributes_enable_screen_text_flow(header_attr, RING_WIDTH + 5);
+  // format text
+  GTextAttributes *header_attr = NULL;
+  GTextAlignment text_alignment = GTextAlignmentCenter;
+  if (bounds.size.h <= MENU_CELL_HEIGHT_TALL) {
+    bounds.origin.y = -2;
+    header_attr = graphics_text_attributes_create();
+    graphics_text_attributes_enable_screen_text_flow(header_attr, RING_WIDTH + 5);
+    text_alignment = GTextAlignmentLeft;
+  }
+  // draw text
   graphics_context_set_text_color(ctx, GColorBulgarianRose);
-  graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_14), header_bounds,
-    GTextOverflowModeFill, GTextAlignmentLeft, header_attr);
+  graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_14), bounds,
+    GTextOverflowModeFill, text_alignment, header_attr);
   graphics_text_attributes_destroy(header_attr);
 }
 
@@ -261,6 +266,7 @@ static void prv_render_ring(GRect bounds, GContext *ctx) {
 // Animation refresh callback
 static void prv_animation_refresh_handler(void) {
   layer_mark_dirty(drawing_data.layer);
+  menu_layer_reload_data(drawing_data.menu);
 }
 
 
@@ -321,12 +327,13 @@ void drawing_render(Layer *layer, GContext *ctx) {
   prv_render_ring(bounds, ctx);
 }
 
-//! Initialize drawing variables
-void drawing_initialize(Layer *layer) {
+// Initialize drawing variables
+void drawing_initialize(Layer *layer, MenuLayer *menu) {
   // register animation callback
   animation_register_update_callback(prv_animation_refresh_handler);
   // store layer pointer
   drawing_data.layer = layer;
+  drawing_data.menu = menu;
   // set starting values
   GRect bounds = layer_get_bounds(layer);
   drawing_data.center_bounds = GRect(bounds.size.w / 2 - CENTER_STROKE_WIDTH,

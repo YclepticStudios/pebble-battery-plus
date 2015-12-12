@@ -12,9 +12,8 @@
 
 // Public drawing constants
 #define RING_WIDTH PBL_IF_ROUND_ELSE(21, 16)
-#define MENU_CELL_COUNT 5
-#define MENU_CELL_HEIGHT_TALL 65
 #define COLOR_MENU_BACKGROUND GColorRajah
+#define MENU_CELL_HEIGHT_TALL 65
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,4 +38,5 @@ void drawing_render(Layer *layer, GContext *ctx);
 
 //! Initialize drawing variables
 //! @param layer Pointer to layer onto which everything is drawn
-void drawing_initialize(Layer *layer);
+//! @param menu Pointer to menu which contains information
+void drawing_initialize(Layer *layer, MenuLayer *menu);
