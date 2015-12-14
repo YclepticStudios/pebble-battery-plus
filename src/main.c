@@ -88,19 +88,8 @@ static void prv_menu_select_click_handler(MenuLayer *menu, MenuIndex *index, voi
 // Loading and Unloading
 //
 
-// Initialize the program
-static void prv_initialize(void) {
-  // start background worker
-  app_worker_launch();
-  // load data
-  data_load_past_days(7);
-  // initialize window
-  main_data.window = window_create();
-  ASSERT(main_data.window);
-  Layer *window_root = window_get_root_layer(main_data.window);
-  GRect window_bounds = layer_get_bounds(window_root);
-  window_stack_push(main_data.window, true);
-  // initialize menu layer
+// Initialize menu layer
+static void prv_initialize_menu_layer(Layer *window_root, GRect window_bounds) {
   main_data.menu_cell_height = MENU_CELL_HEIGHT_TALL;
   main_data.menu = menu_layer_create(grect_inset(window_bounds, GEdgeInsets1(RING_WIDTH)));
   ASSERT(main_data.menu);
@@ -116,11 +105,33 @@ static void prv_initialize(void) {
   menu_layer_set_selected_index(main_data.menu, (MenuIndex) { .row = 2, .section = 0 },
     MenuRowAlignCenter, false);
   layer_add_child(window_root, menu_layer_get_layer(main_data.menu));
+}
+
+// Initialize the program
+static void prv_initialize(void) {
+  // start background worker
+  app_worker_launch();
+  // load data
+  data_load_past_days(7);
+  // initialize window
+  main_data.window = window_create();
+  ASSERT(main_data.window);
+  Layer *window_root = window_get_root_layer(main_data.window);
+  GRect window_bounds = layer_get_bounds(window_root);
+  window_stack_push(main_data.window, true);
+#ifdef PBL_ROUND
+  // initialize menu layer before ring layer if round pebble
+  prv_initialize_menu_layer(window_root, window_bounds);
+#endif
   // initialize tile layer
   main_data.layer = layer_create(window_bounds);
   ASSERT(main_data.layer);
   layer_set_update_proc(main_data.layer, prv_layer_update_proc_handler);
   layer_add_child(window_root, main_data.layer);
+#ifndef PBL_ROUND
+  // initialize menu layer after ring layer if rectangular pebble
+  prv_initialize_menu_layer(window_root, window_bounds);
+#endif
   // initialize drawing
   drawing_initialize(main_data.layer, main_data.menu);
 }
@@ -131,7 +142,6 @@ static void prv_terminate(void) {
   layer_destroy(main_data.layer);
   menu_layer_destroy(main_data.menu);
   window_destroy(main_data.window);
-  drawing_terminate();
   // unload data
   data_unload();
 }

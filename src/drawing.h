@@ -20,10 +20,6 @@
 // API Implementation
 //
 
-//! Move layout to dashboard layout
-//! @param delay The delay before starting the animation
-void drawing_convert_to_dashboard_layout(uint32_t delay);
-
 //! Render a MenuLayer cell
 //! @param menu The MenuLayer in question
 //! @param layer The layer being rendered onto
@@ -40,6 +36,3 @@ void drawing_render(Layer *layer, GContext *ctx);
 //! @param layer Pointer to layer onto which everything is drawn
 //! @param menu Pointer to menu which contains information
 void drawing_initialize(Layer *layer, MenuLayer *menu);
-
-//! Terminate drawing variables
-void drawing_terminate(void);

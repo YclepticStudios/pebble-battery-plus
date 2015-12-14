@@ -44,12 +44,6 @@ void *malloc_check(uint16_t size, const char *file, int line);
 //! @return The current epoch time in milliseconds
 uint64_t epoch(void);
 
-//! Convert epoch into fuzzy text (Yesterday, Thursday, ...)
-//! @param buff The buffer to write the text into
-//! @param size The size of the buffer in question
-//! @param epoch The UTC epoch time (in seconds) to convert into fuzzy text in the current timezone
-void epoch_to_fuzzy_text(char *buff, uint8_t size, int32_t epoch);
-
 //! Grab the current time and start the profiler count
 void profile_start(void);
 

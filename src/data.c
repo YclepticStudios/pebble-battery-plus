@@ -76,16 +76,6 @@ static void prv_list_add_node_end(DataNode *node) {
 // API Implementation
 //
 
-// Get the estimated time remaining as a formatted string
-void data_get_time_remaining(char *buff, uint16_t length) {
-  // calculate time remaining
-  int32_t sec_remaining = data_get_life_remaining();
-  int days = sec_remaining / SEC_IN_DAY;
-  int hrs = sec_remaining % SEC_IN_DAY / SEC_IN_HR;
-  // format and print
-  snprintf(buff, length, "%d days %d hours", days, hrs);
-}
-
 // Get the estimated time remaining in seconds
 int32_t data_get_life_remaining(void) {
   // get latest node

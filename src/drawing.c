@@ -33,8 +33,6 @@
 static struct {
   Layer       *layer;             //< A pointer to the layer on which everything is drawn
   MenuLayer   *menu;              //< A pointer to the menu which contains the information
-  uint8_t     *frame_buff_data;   //< A pointer to memory which will be allocated to store a bmp
-  GRect       center_bounds;      //< The bounds of the central disk
   int32_t     ring_level_angle;   //< The angle for the start of the green ring
   int32_t     ring_1day_angle;    //< The angle for the start of the yellow ring
   int32_t     ring_4hr_angle;     //< The angle for the start of the red ring
@@ -231,33 +229,19 @@ static void prv_cell_render_time_remaining(GRect bounds, GContext *ctx, CellSize
 
 // Render progress ring
 static void prv_render_ring(GRect bounds, GContext *ctx) {
-  // duplicate frame buffer
-#ifndef PBL_ROUND
-  GBitmap *bmp = graphics_capture_frame_buffer(ctx);
-  if (!drawing_data.frame_buff_data) {
-    drawing_data.frame_buff_data = MALLOC(gbitmap_get_bytes_per_row(bmp) *
-      gbitmap_get_bounds(bmp).size.h);
-  }
-  memcpy(drawing_data.frame_buff_data, gbitmap_get_data(bmp), gbitmap_get_bytes_per_row(bmp) *
-    gbitmap_get_bounds(bmp).size.h);
-  graphics_release_frame_buffer(ctx, bmp);
-#endif
-  // calculate ring bounds size
+  // calculate outer ring bounds
   GRect ring_bounds = bounds;
   int32_t gr_angle = atan2_lookup(ring_bounds.size.h, ring_bounds.size.w);
   int32_t radius = (ring_bounds.size.h / 2) * TRIG_MAX_RATIO / sin_lookup(gr_angle);
   ring_bounds.origin.x += ring_bounds.size.w / 2 - radius;
   ring_bounds.origin.y += ring_bounds.size.h / 2 - radius;
   ring_bounds.size.w = ring_bounds.size.h = radius * 2;
-  // draw grey background for aplite
-#ifdef PBL_BW
-  graphics_context_set_fill_color(ctx, GColorLightGray);
-  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
-#endif
+  // calculate inner ring radius
+  GRect ring_in_bounds = grect_inset(bounds, GEdgeInsets1(RING_WIDTH));
+  int16_t small_side = ring_in_bounds.size.h < ring_in_bounds.size.w ?
+    ring_in_bounds.size.h : ring_in_bounds.size.w;
+  radius -= small_side / 2;
   // draw rings
-  int16_t small_side = drawing_data.center_bounds.size.h < drawing_data.center_bounds.size.w ?
-    drawing_data.center_bounds.size.h : drawing_data.center_bounds.size.w;
-  radius = radius - small_side / 2;
 #ifdef PBL_COLOR
   graphics_context_set_fill_color(ctx, COLOR_RING_LOW);
   graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius, 0,
@@ -265,6 +249,10 @@ static void prv_render_ring(GRect bounds, GContext *ctx) {
   graphics_context_set_fill_color(ctx, COLOR_RING_MED);
   graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius,
     drawing_data.ring_4hr_angle, drawing_data.ring_1day_angle);
+#else
+  // draw grey background for aplite instead of yellow and red rings
+  graphics_context_set_fill_color(ctx, GColorLightGray);
+  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
 #endif
   graphics_context_set_fill_color(ctx, COLOR_RING_NORM);
   graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius,
@@ -272,28 +260,15 @@ static void prv_render_ring(GRect bounds, GContext *ctx) {
   graphics_context_set_fill_color(ctx, COLOR_BACKGROUND);
   graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius,
     drawing_data.ring_level_angle, TRIG_MAX_ANGLE);
-#ifdef PBL_ROUND
-  // draw black border arround center
-  graphics_context_set_fill_color(ctx, COLOR_CENTER_BORDER);
-  graphics_fill_radial(ctx, grect_inset(drawing_data.center_bounds,
-    GEdgeInsets1(-CENTER_STROKE_WIDTH)), GOvalScaleModeFitCircle, CENTER_STROKE_WIDTH + 1, 0,
-    TRIG_MAX_ANGLE);
-#else
-  // copy center of frame buffer back
-  bmp = graphics_capture_frame_buffer(ctx);
-  uint8_t *data = gbitmap_get_data(bmp);
-  for (uint16_t y = RING_WIDTH; y < gbitmap_get_bounds(bmp).size.h - RING_WIDTH; y++) {
-    memcpy(&data[y * gbitmap_get_bytes_per_row(bmp) + RING_WIDTH / PBL_IF_BW_ELSE(8, 1)],
-      &drawing_data.frame_buff_data[y * gbitmap_get_bytes_per_row(bmp) + RING_WIDTH /
-      PBL_IF_BW_ELSE(8, 1)],
-      (gbitmap_get_bounds(bmp).size.w - RING_WIDTH * 2) / PBL_IF_BW_ELSE(8, 1));
-  }
-  // clean up
-  graphics_release_frame_buffer(ctx, bmp);
-  // draw frame
-  graphics_context_set_stroke_color(ctx, COLOR_CENTER_BORDER);
+  // draw border around center
   graphics_context_set_stroke_width(ctx, CENTER_STROKE_WIDTH);
+#ifdef PBL_ROUND
+  graphics_draw_circle(ctx, grect_center_point(&bounds), (small_side + CENTER_STROKE_WIDTH) / 2);
+#else
   graphics_draw_rect(ctx, grect_inset(bounds, GEdgeInsets1(RING_WIDTH - CENTER_STROKE_WIDTH / 2)));
+  // draw white rectangle to cover missing bottom of menu layer
+  graphics_context_set_fill_color(ctx, GColorWhite);
+  graphics_fill_rect(ctx, grect_inset(bounds, GEdgeInsets1(RING_WIDTH)), 0, GCornerNone);
 #endif
 }
 
@@ -307,26 +282,6 @@ static void prv_animation_refresh_handler(void) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // API Implementation
 //
-
-// Move layout to dashboard layout
-void drawing_convert_to_dashboard_layout(uint32_t delay) {
-  // calculate angles for ring
-  int32_t max_life_sec = data_get_max_life();
-  int32_t angle_low = TRIG_MAX_ANGLE * LEVEL_LOW_THRESH_SEC / max_life_sec;
-  int32_t angle_med = (int64_t)TRIG_MAX_ANGLE * LEVEL_MED_THRESH_SEC / max_life_sec;
-  int32_t angle_level = TRIG_MAX_ANGLE * data_get_battery_percent() / 100;
-  angle_low = angle_level < angle_low ? angle_level : angle_low;
-  angle_med = angle_level < angle_med ? angle_level : angle_med;
-  // animate to new values
-  animation_grect_start(&drawing_data.center_bounds, grect_inset(layer_get_bounds(
-    drawing_data.layer), GEdgeInsets1(RING_WIDTH)), ANI_DURATION, delay, CurveSinEaseOut);
-  animation_int32_start(&drawing_data.ring_4hr_angle, angle_low, ANI_DURATION, delay,
-    CurveSinEaseOut);
-  animation_int32_start(&drawing_data.ring_1day_angle, angle_med, ANI_DURATION, delay,
-    CurveSinEaseOut);
-  animation_int32_start(&drawing_data.ring_level_angle, angle_level, ANI_DURATION, delay,
-    CurveSinEaseOut);
-}
 
 // Render a MenuLayer cell
 void drawing_render_cell(MenuLayer *menu, Layer *layer, GContext *ctx, MenuIndex index) {
@@ -360,12 +315,9 @@ void drawing_render_cell(MenuLayer *menu, Layer *layer, GContext *ctx, MenuIndex
   }
 }
 
-// Render everything to the screen
+// Render progress rings and border to the screen
 void drawing_render(Layer *layer, GContext *ctx) {
-  // get properties
-  GRect bounds = layer_get_bounds(layer);
-  // draw rings
-  prv_render_ring(bounds, ctx);
+  prv_render_ring(layer_get_bounds(layer), ctx);
 }
 
 // Initialize drawing variables
@@ -384,15 +336,19 @@ void drawing_initialize(Layer *layer, MenuLayer *menu) {
   // store layer pointer
   drawing_data.layer = layer;
   drawing_data.menu = menu;
-  // set starting values
-  GRect bounds = layer_get_bounds(layer);
-  drawing_data.center_bounds = GRect(bounds.size.w / 2 - CENTER_STROKE_WIDTH,
-    bounds.size.h / 2 - CENTER_STROKE_WIDTH, CENTER_STROKE_WIDTH * 2, CENTER_STROKE_WIDTH * 2);
+  // calculate angles for ring
   drawing_data.ring_4hr_angle = drawing_data.ring_1day_angle = drawing_data.ring_level_angle = 0;
-  drawing_convert_to_dashboard_layout(STARTUP_ANI_DELAY);
-}
-
-// Terminate drawing variables
-void drawing_terminate(void) {
-  free(drawing_data.frame_buff_data);
+  int32_t max_life_sec = data_get_max_life();
+  int32_t angle_low = TRIG_MAX_ANGLE * LEVEL_LOW_THRESH_SEC / max_life_sec;
+  int32_t angle_med = (int64_t)TRIG_MAX_ANGLE * LEVEL_MED_THRESH_SEC / max_life_sec;
+  int32_t angle_level = TRIG_MAX_ANGLE * data_get_battery_percent() / 100;
+  angle_low = angle_level < angle_low ? angle_level : angle_low;
+  angle_med = angle_level < angle_med ? angle_level : angle_med;
+  // animate to new values
+  animation_int32_start(&drawing_data.ring_4hr_angle, angle_low, ANI_DURATION,
+    STARTUP_ANI_DELAY, CurveSinEaseOut);
+  animation_int32_start(&drawing_data.ring_1day_angle, angle_med, ANI_DURATION,
+    STARTUP_ANI_DELAY, CurveSinEaseOut);
+  animation_int32_start(&drawing_data.ring_level_angle, angle_level, ANI_DURATION,
+    STARTUP_ANI_DELAY, CurveSinEaseOut);
 }
