@@ -11,71 +11,6 @@
 
 #include "utility.h"
 
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// Compatibility Functions for Aplite
-//
-
-#ifdef PBL_SDK_2
-// Calculate an inset grect
-GRect grect_inset(GRect bounds, int16_t inset) {
-  return GRect(bounds.origin.x + inset, bounds.origin.y + inset,
-               bounds.size.w - inset * 2, bounds.size.h - inset * 2);
-}
-
-// Get a point from a center point, angle, and radius
-static GPoint prv_polar_to_rectangular(GPoint center, int32_t angle, int16_t radius) {
-  return GPoint((sin_lookup(angle) * radius / TRIG_MAX_RATIO) + center.x,
-                (-cos_lookup(angle) * radius / TRIG_MAX_RATIO) + center.y);
-}
-
-// Draw a filled arc
-void graphics_fill_radial(GContext *ctx, GRect bounds, uint8_t fill_mode, int16_t inset,
-                          int32_t angle_start, int32_t angle_end) {
-  // get step angle and exit if too small
-  int32_t step = (angle_end - angle_start) / 4;
-  if (step < 1) {
-    return;
-  }
-  // get properties
-  GPoint center = grect_center_point(&bounds);
-  int16_t radius = (bounds.size.w + bounds.size.h) / 2;
-  // calculate points around outside of window to draw cover
-  GPoint points[8];
-  uint32_t idx = 0;
-  for (int32_t t_angle = angle_start; t_angle < angle_end; t_angle += step){
-    points[idx++] = prv_polar_to_rectangular(center, t_angle, radius);
-  }
-  // add point at hand position, and in center (to form pie wedge)
-  points[idx++] = prv_polar_to_rectangular(center, angle_end, radius);
-  points[idx++] = center;
-
-  // fill the covering
-  GPathInfo info = (GPathInfo) {
-    .num_points = idx,
-    .points = points
-  };
-  GPath *path = gpath_create(&info);
-  gpath_draw_filled(ctx, path);
-  gpath_destroy(path);
-}
-
-// Fill GRect with "grey" on Aplite
-GBitmap *grey_bmp = NULL;
-void graphics_fill_rect_grey(GContext *ctx, GRect rect) {
-  // create if first call
-  if (!grey_bmp) {
-    grey_bmp = gbitmap_create_blank(GSize(2, 2), GBitmapFormat1Bit);
-    uint8_t *data = gbitmap_get_data(grey_bmp);
-    data[0] = 0b00000001;
-    data[4] = 0b00000010;
-  }
-  // draw grey rectangle with bitmap
-  graphics_draw_bitmap_in_rect(ctx, grey_bmp, rect);
-}
-#endif
-
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Convenience Functions
 //
@@ -101,4 +36,46 @@ void *malloc_check(uint16_t size, const char *file, int line) {
 // Get current epoch in milliseconds
 uint64_t epoch(void) {
   return (uint64_t)time(NULL) * 1000 + (uint64_t)time_ms(NULL, NULL);
+}
+
+// Convert epoch into fuzzy text (Yesterday, Thursday, ...)
+void epoch_to_fuzzy_text(char *buff, uint8_t size, int32_t epoch) {
+  // convert epoch to localized tm struct
+  tm *end_time = localtime((time_t*)(&epoch));
+  time_t now = time(NULL);
+  tm *now_time = localtime(&now);
+  // convert struct to fuzzy time
+  if ((abs(now_time->tm_yday - end_time->tm_yday) <= 1 && now_time->tm_year == end_time->tm_year) ||
+      (abs(now_time->tm_yday - end_time->tm_yday) == DAY_IN_YEAR)) {
+    if (time(NULL) > epoch) {
+      //
+    }
+//    if (tm_time->tm_hour < 12) {
+//      // Morning
+//    } else if (tm_time->tm_hour < 17) {
+//      // Afternoon
+//    } else {
+//      // Evening
+//    }
+//  } else if (epoch - time(NULL) < SEC_IN_DAY) {
+//    if (tm_time->tm_hour < 12) {
+//      //  Morning
+//    } else if (tm_time->tm_hour < 17) {
+//      // This Afternoon
+//    } else {
+//      // This Evening
+//    }
+  }
+}
+
+// Grab the current time and start the profiler count
+uint64_t profile_time;
+void profile_start(void) {
+  profile_time = epoch();
+}
+
+// Detect how long the profiler has been running and print the result
+void profile_print(void) {
+  uint64_t duration = epoch() - profile_time;
+  APP_LOG(APP_LOG_LEVEL_INFO, "Profiler: %d ms", (int)duration);
 }

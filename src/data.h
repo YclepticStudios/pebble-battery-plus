@@ -10,10 +10,6 @@
 #pragma once
 #include <pebble.h>
 
-// Public Constants
-#define SEC_IN_DAY 86400
-#define SEC_IN_HR 3600
-#define SEC_IN_MIN 60
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // API Implementation
@@ -28,9 +24,17 @@ void data_get_formated_time_remaining(char *buff, uint16_t length);
 //! @return The number of seconds of battery life remaining
 int32_t data_get_life_remaining(void);
 
+//! Get the time the watch was last charged
+//! @return The time the watch was lasted charged as a UTC epoch
+int32_t data_get_last_charge_time(void);
+
 //! Get the current run time of the watch in seconds (if no charge data, returns app install time)
-//! @return the number of seconds since the last charge
+//! @return The number of seconds since the last charge
 int32_t data_get_run_time(void);
+
+//! Get the current percent-per-day of battery life
+//! @return The current percent-per-day discharge rate
+int32_t data_get_percent_per_day(void);
 
 //! Get the current battery percentage (this is an estimate of the exact value)
 //! @return An estimate of the current exact battery percent

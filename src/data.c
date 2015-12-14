@@ -94,6 +94,11 @@ int32_t data_get_life_remaining(void) {
   return tmp_node.epoch + tmp_node.percent * -charge_rate - time(NULL);
 }
 
+// Get the time the watch was last charged
+int32_t data_get_last_charge_time(void) {
+  return time(NULL) - data_get_run_time();
+}
+
 // Get the current run time of the watch in seconds (if no charge data, returns app install time)
 int32_t data_get_run_time(void) {
   // last charge time
@@ -106,6 +111,11 @@ int32_t data_get_run_time(void) {
   }
   // return time in seconds
   return time(NULL) - lst_charge_time;
+}
+
+// Get the current percent-per-day of battery life
+int32_t data_get_percent_per_day(void) {
+  return 100 / ((data_get_max_life() + SEC_IN_DAY / 2) / SEC_IN_DAY);
 }
 
 // Get the current battery percentage (this is an estimate of the exact value)

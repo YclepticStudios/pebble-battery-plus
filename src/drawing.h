@@ -40,3 +40,6 @@ void drawing_render(Layer *layer, GContext *ctx);
 //! @param layer Pointer to layer onto which everything is drawn
 //! @param menu Pointer to menu which contains information
 void drawing_initialize(Layer *layer, MenuLayer *menu);
+
+//! Terminate drawing variables
+void drawing_terminate(void);

@@ -12,9 +12,13 @@
 #pragma once
 #include <pebble.h>
 
-
-
-
+// Time Constants
+#define SEC_IN_DAY 86400
+#define SEC_IN_HR 3600
+#define SEC_IN_MIN 60
+#define MIN_IN_HR 60
+#define MIN_IN_DAY 1440
+#define DAY_IN_YEAR 365
 
 //! Terminate program if null pointer
 //! @param ptr The pointer to check for null
@@ -39,3 +43,15 @@ void *malloc_check(uint16_t size, const char *file, int line);
 //! Get current epoch in milliseconds
 //! @return The current epoch time in milliseconds
 uint64_t epoch(void);
+
+//! Convert epoch into fuzzy text (Yesterday, Thursday, ...)
+//! @param buff The buffer to write the text into
+//! @param size The size of the buffer in question
+//! @param epoch The UTC epoch time (in seconds) to convert into fuzzy text in the current timezone
+void epoch_to_fuzzy_text(char *buff, uint8_t size, int32_t epoch);
+
+//! Grab the current time and start the profiler count
+void profile_start(void);
+
+//! Detect how long the profiler has been running and print the result
+void profile_print(void);

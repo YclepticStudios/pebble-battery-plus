@@ -131,6 +131,7 @@ static void prv_terminate(void) {
   layer_destroy(main_data.layer);
   menu_layer_destroy(main_data.menu);
   window_destroy(main_data.window);
+  drawing_terminate();
   // unload data
   data_unload();
 }
