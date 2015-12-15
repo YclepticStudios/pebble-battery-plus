@@ -42,7 +42,12 @@ void animation_int32_start(int32_t *ptr, int32_t to, uint32_t duration, uint32_t
 
 //! Check if pointer has a scheduled animation
 //! @param ptr A pointer for which to check for an animation
+//! @return True if the pointer is being animated else false
 bool animation_check_scheduled(void *ptr);
+
+//! Check if any animation is scheduled
+//! @return True if an animation is running else false
+bool animation_any_scheduled(void);
 
 //! Cancel an animation by its pointer
 //! @param ptr A pointer for which to cancel an animation

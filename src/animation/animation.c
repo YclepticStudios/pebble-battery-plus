@@ -229,6 +229,11 @@ bool animation_check_scheduled(void *ptr) {
   return false;
 }
 
+// Check if any animation is scheduled
+bool animation_any_scheduled(void) {
+  return head_node;
+}
+
 // Cancel an animation by its pointer
 void animation_stop(void *ptr) {
   AnimationNode *cur_node = head_node;

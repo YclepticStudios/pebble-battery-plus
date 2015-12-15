@@ -27,6 +27,12 @@
 #define TEXT_TOP_BORDER_FRACTION 3 / 25
 #define ANI_DURATION 300
 #define STARTUP_ANI_DELAY 550
+// Clock cell constants
+#define CELL_CLOCK_TICK_WIDTH 3
+#define CELL_CLOCK_TICK_LENGTH 8
+#define CELL_CLOCK_HR_HAND_INSET 37
+#define CELL_CLOCK_MIN_HAND_INSET 23
+#define CELL_CLOCK_HAND_WIDTH 7
 
 
 // Drawing variables
@@ -42,6 +48,7 @@ static struct {
 static struct {
   GFont       gothic_14;          //< FONT_KEY_GOTHIC_14
   GFont       gothic_14_bold;     //< FONT_KEY_GOTHIC_14_BOLD
+  GFont       gothic_18;          //< FONT_KEY_GOTHIC_18
   GFont       gothic_18_bold;     //< FONT_KEY_GOTHIC_18_BOLD
   GFont       gothic_24_bold;     //< FONT_KEY_GOTHIC_24_BOLD
   GFont       leco_26_bold;       //< FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM
@@ -59,7 +66,7 @@ typedef enum {
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// Cell Rendering Functions
+// Cell Helper Functions
 //
 
 // Render cell header
@@ -91,8 +98,9 @@ static void prv_render_rich_text(GRect bounds, GContext *ctx, uint8_t num_args, 
     tot_width += txt_bounds[ii].size.w;
   }
   // calculate positioning of each string
-  int16_t base_line_y = (bounds.size.h + max_height) / 2 - max_height * TEXT_TOP_BORDER_FRACTION;
-  int16_t left_line_x = (bounds.size.w - tot_width) / 2;
+  int16_t base_line_y = bounds.origin.y + (bounds.size.h + max_height) / 2 -
+    max_height * TEXT_TOP_BORDER_FRACTION;
+  int16_t left_line_x = bounds.origin.x + (bounds.size.w - tot_width) / 2;
   for (uint8_t ii = 0; ii < num_args / 2; ii++) {
     txt_bounds[ii].origin.x = left_line_x;
     txt_bounds[ii].origin.y = base_line_y - txt_bounds[ii].size.h;
@@ -109,13 +117,16 @@ static void prv_render_rich_text(GRect bounds, GContext *ctx, uint8_t num_args, 
 
 // Render a cell with a title and rich formatted content
 // Arguments are specified as alternating string pointers and fonts (char*, GFont, char*, GFont ...)
-static void prv_render_cell(GRect bounds, GContext *ctx, char *title, uint8_t num_args, ...) {
+static void prv_render_cell(GRect bounds, GContext *ctx, CellSize cell_size, char *title,
+                            uint8_t num_args, ...) {
   // get variable arguments
   va_list a_list;
   va_start(a_list, num_args);
   // draw header
-  graphics_context_set_text_color(ctx, GColorBulgarianRose);
-  prv_render_header_text(bounds, ctx, title);
+  if (title && cell_size != CellSizeSmall) {
+    graphics_context_set_text_color(ctx, GColorBulgarianRose);
+    prv_render_header_text(bounds, ctx, title);
+  }
   // draw body
   graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
   prv_render_rich_text(bounds, ctx, num_args, a_list);
@@ -123,36 +134,79 @@ static void prv_render_cell(GRect bounds, GContext *ctx, char *title, uint8_t nu
   va_end(a_list);
 }
 
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Cell Rendering Functions
+//
+
 // Render current clock time
 static void prv_cell_render_clock_time(GRect bounds, GContext *ctx, CellSize cell_size) {
   // get time
   time_t t_time = time(NULL);
   tm *tm_time = localtime(&t_time);
   // check draw mode
-  if (cell_size == CellSizeSmall || cell_size == CellSizeLarge) {
+  if (cell_size != CellSizeFullScreen) {
     // get fonts
     GFont symbol_font = drawing_fonts.gothic_14_bold;
     GFont digit_font = (cell_size == CellSizeSmall) ?
       drawing_fonts.leco_26_bold : drawing_fonts.leco_32_bold;
     // get text
-    char digit_buff[6], symbol_buff[3];
+    char digit_buff[6], symbol_buff[3], date_buff[16];
     strftime(digit_buff, sizeof(digit_buff), "%l:%M", tm_time);
     strftime(symbol_buff, sizeof(symbol_buff), "%p", tm_time);
+    strftime(date_buff, sizeof(date_buff), "%a, %b %e", tm_time);
+    // get bounds
+    if (cell_size == CellSizeLarge) {
+      bounds.size.h -= 8;
+    }
     // draw text
-    prv_render_cell(bounds, ctx, "Clock", 4, digit_buff, digit_font, symbol_buff, symbol_font);
+    prv_render_cell(bounds, ctx, cell_size, "Clock", 4, digit_buff, digit_font, symbol_buff,
+      symbol_font);
+    if (cell_size == CellSizeLarge) {
+      bounds.origin.y += 21;
+      prv_render_cell(bounds, ctx, cell_size, NULL, 2, date_buff, drawing_fonts.gothic_18_bold);
+    }
   } else {
     // draw background
     graphics_context_set_fill_color(ctx, GColorBlack);
     graphics_fill_rect(ctx, bounds, 0, GCornerNone);
+    // only draw if not animating
+    if (!animation_any_scheduled()) {
+      // draw tick marks
+      GRect tick_bounds = grect_inset(bounds, GEdgeInsets1(-15));
+      graphics_context_set_stroke_width(ctx, CELL_CLOCK_TICK_WIDTH);
+      graphics_context_set_stroke_color(ctx, GColorWhite);
+      for (int32_t angle = 0; angle < TRIG_MAX_ANGLE; angle += TRIG_MAX_ANGLE / 12) {
+        graphics_draw_line(ctx, gpoint_from_polar(tick_bounds, GOvalScaleModeFillCircle, angle),
+          grect_center_point(&tick_bounds));
+      }
+#ifdef PBL_ROUND
+      graphics_fill_circle(ctx, grect_center_point(&bounds), bounds.size.w / 2 -
+        CELL_CLOCK_TICK_LENGTH);
+#else
+      graphics_fill_rect(ctx, grect_inset(bounds, GEdgeInsets1(CELL_CLOCK_TICK_LENGTH)), 0,
+        GCornerNone);
+#endif
+      // draw date
+      GRect date_bounds = bounds;
+      date_bounds.origin.y += date_bounds.size.h / 2 - 12;
+      date_bounds.origin.x += date_bounds.size.w * 2 / 3;
+      date_bounds.size.w /= 4;
+      char date_buff[3];
+      strftime(date_buff, sizeof(date_buff), "%e", tm_time);
+      graphics_context_set_text_color(ctx, GColorChromeYellow);
+      graphics_draw_text(ctx, date_buff, drawing_fonts.gothic_18, date_bounds,
+        GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+    }
     // calculate hands
-    GPoint hr_point = gpoint_from_polar(grect_inset(bounds, GEdgeInsets1(25)),
+    GPoint hr_point = gpoint_from_polar(grect_inset(bounds, GEdgeInsets1(CELL_CLOCK_HR_HAND_INSET)),
       GOvalScaleModeFillCircle,
       (tm_time->tm_hour % 12 * MIN_IN_HR + tm_time->tm_min) * TRIG_MAX_ANGLE / (MIN_IN_DAY / 2));
-    GPoint min_point = gpoint_from_polar(grect_inset(bounds, GEdgeInsets1(15)),
-      GOvalScaleModeFillCircle,
+    GPoint min_point = gpoint_from_polar(grect_inset(bounds,
+      GEdgeInsets1(CELL_CLOCK_MIN_HAND_INSET)), GOvalScaleModeFillCircle,
       tm_time->tm_min * TRIG_MAX_ANGLE / MIN_IN_HR);
     // draw hands
-    graphics_context_set_stroke_width(ctx, 7);
+    graphics_context_set_stroke_width(ctx, CELL_CLOCK_HAND_WIDTH);
     graphics_context_set_stroke_color(ctx, GColorWhite);
     graphics_draw_line(ctx, grect_center_point(&bounds), min_point);
     graphics_context_set_stroke_color(ctx, GColorRed);
@@ -173,7 +227,8 @@ static void prv_cell_render_run_time(GRect bounds, GContext *ctx, CellSize cell_
   char day_buff[4], hr_buff[3];
   snprintf(day_buff, sizeof(day_buff), "%d", days);
   snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
-  prv_render_cell(bounds, ctx, "Run Time", 8, day_buff, digit_font, "d ", symbol_font, hr_buff,
+  prv_render_cell(bounds, ctx, cell_size, "Run Time", 8, day_buff, digit_font, "d ", symbol_font,
+    hr_buff,
     digit_font, "h", symbol_font);
   // if in full-screen mode
   if (cell_size == CellSizeFullScreen) {
@@ -199,7 +254,7 @@ static void prv_cell_render_percent(GRect bounds, GContext *ctx, CellSize cell_s
   char buff[4];
   snprintf(buff, sizeof(buff), "%d", data_get_battery_percent());
   // draw text
-  prv_render_cell(bounds, ctx, "Percent", 6, "   ", symbol_font, buff, digit_font, "%",
+  prv_render_cell(bounds, ctx, cell_size, "Percent", 6, "   ", symbol_font, buff, digit_font, "%",
     symbol_font);
 }
 
@@ -218,8 +273,8 @@ static void prv_cell_render_time_remaining(GRect bounds, GContext *ctx, CellSize
   snprintf(day_buff, sizeof(day_buff), "%d", days);
   snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
   // draw text
-  prv_render_cell(bounds, ctx, "Remaining", 8, day_buff, digit_font, "d ", symbol_font, hr_buff,
-    digit_font, "h", symbol_font);
+  prv_render_cell(bounds, ctx, cell_size, "Remaining", 8, day_buff, digit_font, "d ",
+    symbol_font, hr_buff, digit_font, "h", symbol_font);
 }
 
 
@@ -312,6 +367,7 @@ void drawing_render_cell(MenuLayer *menu, Layer *layer, GContext *ctx, MenuIndex
       prv_cell_render_time_remaining(bounds, ctx, cell_size);
       break;
     default:
+      // NOTE: this function causes random crashing of the watch
 //      menu_cell_basic_draw(ctx, layer, "<empty>", NULL, NULL);
       break;
   }
@@ -327,6 +383,7 @@ void drawing_initialize(Layer *layer, MenuLayer *menu) {
   // load fonts
   drawing_fonts.gothic_14 = fonts_get_system_font(FONT_KEY_GOTHIC_14);
   drawing_fonts.gothic_14_bold = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
+  drawing_fonts.gothic_18 = fonts_get_system_font(FONT_KEY_GOTHIC_18);
   drawing_fonts.gothic_18_bold = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
   drawing_fonts.gothic_24_bold = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   drawing_fonts.leco_26_bold = fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM);

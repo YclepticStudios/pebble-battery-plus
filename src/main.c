@@ -83,6 +83,11 @@ static void prv_menu_select_click_handler(MenuLayer *menu, MenuIndex *index, voi
   }
 }
 
+// Tick Timer service for updating every minute
+static void prv_tick_timer_service_handler(tm *tick_time, TimeUnits units_changed) {
+  menu_layer_reload_data(main_data.menu);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Loading and Unloading
@@ -134,10 +139,14 @@ static void prv_initialize(void) {
 #endif
   // initialize drawing
   drawing_initialize(main_data.layer, main_data.menu);
+  // subscribe to services
+  tick_timer_service_subscribe(MINUTE_UNIT, prv_tick_timer_service_handler);
 }
 
 // Terminate the program
 static void prv_terminate(void) {
+  // unsubscribe from services
+  tick_timer_service_unsubscribe();
   // destroy
   layer_destroy(main_data.layer);
   menu_layer_destroy(main_data.menu);
