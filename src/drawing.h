@@ -11,7 +11,7 @@
 #include <pebble.h>
 
 // Public drawing constants
-#define RING_WIDTH PBL_IF_ROUND_ELSE(21, 16)
+#define RING_WIDTH PBL_IF_ROUND_ELSE(18, 16)
 #define COLOR_MENU_BACKGROUND GColorRajah
 #define MENU_CELL_HEIGHT_TALL 65
 

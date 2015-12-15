@@ -145,9 +145,9 @@ static void prv_cell_render_clock_time(GRect bounds, GContext *ctx, CellSize cel
     graphics_context_set_fill_color(ctx, GColorBlack);
     graphics_fill_rect(ctx, bounds, 0, GCornerNone);
     // calculate hands
-    GPoint hr_point = gpoint_from_polar(grect_inset(bounds, GEdgeInsets1(23)),
+    GPoint hr_point = gpoint_from_polar(grect_inset(bounds, GEdgeInsets1(25)),
       GOvalScaleModeFillCircle,
-      (tm_time->tm_hour % 12 * MIN_IN_HR + tm_time->tm_min) * TRIG_MAX_ANGLE / MIN_IN_DAY);
+      (tm_time->tm_hour % 12 * MIN_IN_HR + tm_time->tm_min) * TRIG_MAX_ANGLE / (MIN_IN_DAY / 2));
     GPoint min_point = gpoint_from_polar(grect_inset(bounds, GEdgeInsets1(15)),
       GOvalScaleModeFillCircle,
       tm_time->tm_min * TRIG_MAX_ANGLE / MIN_IN_HR);
@@ -261,9 +261,11 @@ static void prv_render_ring(GRect bounds, GContext *ctx) {
   graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius,
     drawing_data.ring_level_angle, TRIG_MAX_ANGLE);
   // draw border around center
+  graphics_context_set_stroke_color(ctx, COLOR_CENTER_BORDER);
   graphics_context_set_stroke_width(ctx, CENTER_STROKE_WIDTH);
 #ifdef PBL_ROUND
-  graphics_draw_circle(ctx, grect_center_point(&bounds), (small_side + CENTER_STROKE_WIDTH) / 2);
+  graphics_draw_circle(ctx, grect_center_point(&bounds), (small_side + CENTER_STROKE_WIDTH) / 2 -
+   1);
 #else
   graphics_draw_rect(ctx, grect_inset(bounds, GEdgeInsets1(RING_WIDTH - CENTER_STROKE_WIDTH / 2)));
   // draw white rectangle to cover missing bottom of menu layer
@@ -290,7 +292,7 @@ void drawing_render_cell(MenuLayer *menu, Layer *layer, GContext *ctx, MenuIndex
   CellSize cell_size;
   if (bounds.size.h > MENU_CELL_HEIGHT_TALL) {
     cell_size = CellSizeFullScreen;
-  } else if (menu_layer_get_selected_index(menu).row == index.row) {
+  } else if (menu_cell_layer_is_highlighted(layer)) {
     cell_size = CellSizeLarge;
   } else {
     cell_size = CellSizeSmall;
@@ -310,7 +312,7 @@ void drawing_render_cell(MenuLayer *menu, Layer *layer, GContext *ctx, MenuIndex
       prv_cell_render_time_remaining(bounds, ctx, cell_size);
       break;
     default:
-      menu_cell_basic_draw(ctx, layer, "<empty>", NULL, NULL);
+//      menu_cell_basic_draw(ctx, layer, "<empty>", NULL, NULL);
       break;
   }
 }

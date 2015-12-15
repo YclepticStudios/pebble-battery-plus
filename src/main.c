@@ -14,7 +14,7 @@
 #include "utility.h"
 
 // Main constants
-#define MENU_CELL_COUNT 5
+#define MENU_CELL_COUNT 4
 #define MENU_CELL_HEIGHT_TALL 65
 #define MENU_CELL_ANIMATION_BOUNCE_HEIGHT 20
 #define MENU_CELL_ANIMATION_SLIDE_DURATION_MS 50
