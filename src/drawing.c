@@ -20,8 +20,8 @@
 #define COLOR_BACKGROUND PBL_IF_COLOR_ELSE(GColorDarkGray, GColorBlack)
 #define COLOR_CENTER_BORDER GColorBlack
 #define COLOR_FOREGROUND GColorBlack
-#define COLOR_RING_LOW GColorRed
-#define COLOR_RING_MED GColorYellow
+#define COLOR_RING_LOW PBL_IF_COLOR_ELSE(GColorRed, GColorLightGray)
+#define COLOR_RING_MED PBL_IF_COLOR_ELSE(GColorYellow, GColorLightGray)
 #define COLOR_RING_NORM GColorGreen
 #define CENTER_STROKE_WIDTH PBL_IF_ROUND_ELSE(5, 4)
 #define TEXT_TOP_BORDER_FRACTION 3 / 25
@@ -73,8 +73,7 @@ typedef enum {
 static void prv_render_header_text(GRect bounds, GContext *ctx, char *text) {
   // format text
   GTextAlignment text_alignment = GTextAlignmentLeft;
-  GTextAttributes *header_attr = NULL;
-  header_attr = graphics_text_attributes_create();
+  GTextAttributes *header_attr = graphics_text_attributes_create();
   graphics_text_attributes_enable_screen_text_flow(header_attr, RING_WIDTH + 5);
   // draw text
   graphics_draw_text(ctx, text, drawing_fonts.gothic_14, bounds,
@@ -297,18 +296,12 @@ static void prv_render_ring(GRect bounds, GContext *ctx) {
     ring_in_bounds.size.h : ring_in_bounds.size.w;
   radius -= small_side / 2;
   // draw rings
-#ifdef PBL_COLOR
   graphics_context_set_fill_color(ctx, COLOR_RING_LOW);
   graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius, 0,
     drawing_data.ring_4hr_angle);
   graphics_context_set_fill_color(ctx, COLOR_RING_MED);
   graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius,
     drawing_data.ring_4hr_angle, drawing_data.ring_1day_angle);
-#else
-  // draw grey background for aplite instead of yellow and red rings
-  graphics_context_set_fill_color(ctx, GColorLightGray);
-  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
-#endif
   graphics_context_set_fill_color(ctx, COLOR_RING_NORM);
   graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius,
     drawing_data.ring_1day_angle, drawing_data.ring_level_angle);
@@ -378,6 +371,24 @@ void drawing_render(Layer *layer, GContext *ctx) {
   prv_render_ring(layer_get_bounds(layer), ctx);
 }
 
+// Recalculate and animate the position the progress ring
+void drawing_recalculate_progress_rings(void) {
+  // calculate angles for ring
+  int32_t max_life_sec = data_get_max_life();
+  int32_t angle_low = TRIG_MAX_ANGLE * LEVEL_LOW_THRESH_SEC / max_life_sec;
+  int32_t angle_med = (int64_t)TRIG_MAX_ANGLE * LEVEL_MED_THRESH_SEC / max_life_sec;
+  int32_t angle_level = TRIG_MAX_ANGLE * data_get_battery_percent() / 100;
+  angle_low = angle_level < angle_low ? angle_level : angle_low;
+  angle_med = angle_level < angle_med ? angle_level : angle_med;
+  // animate to new values
+  animation_int32_start(&drawing_data.ring_4hr_angle, angle_low, ANI_DURATION,
+    STARTUP_ANI_DELAY, CurveSinEaseOut);
+  animation_int32_start(&drawing_data.ring_1day_angle, angle_med, ANI_DURATION,
+    STARTUP_ANI_DELAY, CurveSinEaseOut);
+  animation_int32_start(&drawing_data.ring_level_angle, angle_level, ANI_DURATION,
+    STARTUP_ANI_DELAY, CurveSinEaseOut);
+}
+
 // Initialize drawing variables
 void drawing_initialize(Layer *layer, MenuLayer *menu) {
   // load fonts
@@ -395,19 +406,8 @@ void drawing_initialize(Layer *layer, MenuLayer *menu) {
   // store layer pointer
   drawing_data.layer = layer;
   drawing_data.menu = menu;
-  // calculate angles for ring
+  // set initial progress ring angles
   drawing_data.ring_4hr_angle = drawing_data.ring_1day_angle = drawing_data.ring_level_angle = 0;
-  int32_t max_life_sec = data_get_max_life();
-  int32_t angle_low = TRIG_MAX_ANGLE * LEVEL_LOW_THRESH_SEC / max_life_sec;
-  int32_t angle_med = (int64_t)TRIG_MAX_ANGLE * LEVEL_MED_THRESH_SEC / max_life_sec;
-  int32_t angle_level = TRIG_MAX_ANGLE * data_get_battery_percent() / 100;
-  angle_low = angle_level < angle_low ? angle_level : angle_low;
-  angle_med = angle_level < angle_med ? angle_level : angle_med;
-  // animate to new values
-  animation_int32_start(&drawing_data.ring_4hr_angle, angle_low, ANI_DURATION,
-    STARTUP_ANI_DELAY, CurveSinEaseOut);
-  animation_int32_start(&drawing_data.ring_1day_angle, angle_med, ANI_DURATION,
-    STARTUP_ANI_DELAY, CurveSinEaseOut);
-  animation_int32_start(&drawing_data.ring_level_angle, angle_level, ANI_DURATION,
-    STARTUP_ANI_DELAY, CurveSinEaseOut);
+  // animate to new positions
+  drawing_recalculate_progress_rings();
 }

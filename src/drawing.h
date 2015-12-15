@@ -32,6 +32,9 @@ void drawing_render_cell(MenuLayer *menu, Layer *layer, GContext *ctx, MenuIndex
 //! @param ctx The layer's drawing context
 void drawing_render(Layer *layer, GContext *ctx);
 
+//! Recalculate and animate the position the progress ring
+void drawing_recalculate_progress_rings(void);
+
 //! Initialize drawing variables
 //! @param layer Pointer to layer onto which everything is drawn
 //! @param menu Pointer to menu which contains information

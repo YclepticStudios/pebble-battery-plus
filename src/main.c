@@ -14,6 +14,7 @@
 #include "utility.h"
 
 // Main constants
+#define DATA_LOAD_NUM_DAYS 7
 #define MENU_CELL_COUNT 4
 #define MENU_CELL_HEIGHT_TALL 65
 #define MENU_CELL_ANIMATION_BOUNCE_HEIGHT 20
@@ -85,7 +86,17 @@ static void prv_menu_select_click_handler(MenuLayer *menu, MenuIndex *index, voi
 
 // Tick Timer service for updating every minute
 static void prv_tick_timer_service_handler(tm *tick_time, TimeUnits units_changed) {
+  drawing_recalculate_progress_rings();
   menu_layer_reload_data(main_data.menu);
+  layer_mark_dirty(main_data.layer);
+}
+
+// Worker message callback
+static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
+  // no need to read what is sent, just update the data
+  data_load_past_days(DATA_LOAD_NUM_DAYS);
+  // refresh the screen
+  prv_tick_timer_service_handler(NULL, MINUTE_UNIT);
 }
 
 
@@ -117,7 +128,7 @@ static void prv_initialize(void) {
   // start background worker
   app_worker_launch();
   // load data
-  data_load_past_days(7);
+  data_load_past_days(DATA_LOAD_NUM_DAYS);
   // initialize window
   main_data.window = window_create();
   ASSERT(main_data.window);
@@ -140,12 +151,15 @@ static void prv_initialize(void) {
   // initialize drawing
   drawing_initialize(main_data.layer, main_data.menu);
   // subscribe to services
+  app_worker_message_subscribe(prv_worker_message_handler);
+  tick_timer_service_subscribe(MINUTE_UNIT, prv_tick_timer_service_handler);
   tick_timer_service_subscribe(MINUTE_UNIT, prv_tick_timer_service_handler);
 }
 
 // Terminate the program
 static void prv_terminate(void) {
   // unsubscribe from services
+  app_worker_message_unsubscribe();
   tick_timer_service_unsubscribe();
   // destroy
   layer_destroy(main_data.layer);

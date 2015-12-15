@@ -127,6 +127,9 @@ static void prv_battery_state_change_handler(BatteryChargeState battery_state) {
   data_logging_log(data_log_session, &node, 1);
   // set as last node
   last_node = node;
+  // send message to foreground to refresh data
+  AppWorkerMessage msg_data = { .data0 = 0 };
+  app_worker_send_message(0, &msg_data);
 }
 
 
