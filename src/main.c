@@ -153,7 +153,6 @@ static void prv_initialize(void) {
   // subscribe to services
   app_worker_message_subscribe(prv_worker_message_handler);
   tick_timer_service_subscribe(MINUTE_UNIT, prv_tick_timer_service_handler);
-  tick_timer_service_subscribe(MINUTE_UNIT, prv_tick_timer_service_handler);
 }
 
 // Terminate the program

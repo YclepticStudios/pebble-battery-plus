@@ -17,6 +17,7 @@
 #define LEVEL_LOW_THRESH_SEC 4 * SEC_IN_HR
 #define LEVEL_MED_THRESH_SEC SEC_IN_DAY
 // Drawing constants
+#define ANIMATION_ANGLE_CHANGE_THRESHOLD 348
 #define COLOR_BACKGROUND PBL_IF_COLOR_ELSE(GColorDarkGray, GColorBlack)
 #define COLOR_CENTER_BORDER GColorBlack
 #define COLOR_FOREGROUND GColorBlack
@@ -40,8 +41,8 @@ static struct {
   Layer       *layer;             //< A pointer to the layer on which everything is drawn
   MenuLayer   *menu;              //< A pointer to the menu which contains the information
   int32_t     ring_level_angle;   //< The angle for the start of the green ring
-  int32_t     ring_1day_angle;    //< The angle for the start of the yellow ring
-  int32_t     ring_4hr_angle;     //< The angle for the start of the red ring
+  int32_t     ring_med_angle;     //< The angle for the start of the yellow ring
+  int32_t     ring_low_angle;     //< The angle for the start of the red ring
 } drawing_data;
 
 // Different fonts used to draw
@@ -82,45 +83,38 @@ static void prv_render_header_text(GRect bounds, GContext *ctx, char *text) {
 }
 
 // Render rich text with different fonts
-// Arguments are specified as alternating string pointers and fonts (char*, GFont, char*, GFont ...)
-static void prv_render_rich_text(GRect bounds, GContext *ctx, uint8_t num_args, va_list a_list_1) {
-  // get variable arguments
-  va_list a_list_2;
-  va_copy(a_list_2, a_list_1);
+// Arguments are specified as two arrays of char* and GFont
+static void prv_render_rich_text(GRect bounds, GContext *ctx, uint8_t array_length,
+                                 char **text, GFont *font) {
   // calculate the rendered size of each string
   int16_t max_height = 0, tot_width = 0;
-  GRect txt_bounds[num_args / 2];
-  for (uint8_t ii = 0; ii < num_args / 2; ii++) {
-    txt_bounds[ii].size = graphics_text_layout_get_content_size(va_arg(a_list_1, char*),
-      va_arg(a_list_1, GFont), bounds, GTextOverflowModeFill, GTextAlignmentLeft);
-    max_height = max_height > txt_bounds[ii].size.h ? max_height : txt_bounds[ii].size.h;
+  GRect txt_bounds[array_length];
+  for (uint8_t ii = 0; ii < array_length; ii++) {
+    txt_bounds[ii].size = graphics_text_layout_get_content_size(text[ii], font[ii], bounds,
+      GTextOverflowModeFill, GTextAlignmentLeft);
+    max_height = (max_height > txt_bounds[ii].size.h) ? max_height : txt_bounds[ii].size.h;
     tot_width += txt_bounds[ii].size.w;
   }
   // calculate positioning of each string
   int16_t base_line_y = bounds.origin.y + (bounds.size.h + max_height) / 2 -
     max_height * TEXT_TOP_BORDER_FRACTION;
   int16_t left_line_x = bounds.origin.x + (bounds.size.w - tot_width) / 2;
-  for (uint8_t ii = 0; ii < num_args / 2; ii++) {
+  for (uint8_t ii = 0; ii < array_length; ii++) {
     txt_bounds[ii].origin.x = left_line_x;
     txt_bounds[ii].origin.y = base_line_y - txt_bounds[ii].size.h;
     left_line_x += txt_bounds[ii].size.w;
   }
   // draw each string
-  for (uint8_t ii = 0; ii < num_args / 2; ii++) {
-    graphics_draw_text(ctx, va_arg(a_list_2, char*), va_arg(a_list_2, GFont), txt_bounds[ii],
-      GTextOverflowModeFill, GTextAlignmentLeft, NULL);
+  for (uint8_t ii = 0; ii < array_length; ii++) {
+    graphics_draw_text(ctx, text[ii], font[ii], txt_bounds[ii], GTextOverflowModeFill,
+      GTextAlignmentLeft, NULL);
   }
-  // end variable arguments
-  va_end(a_list_2);
 }
 
 // Render a cell with a title and rich formatted content
-// Arguments are specified as alternating string pointers and fonts (char*, GFont, char*, GFont ...)
+// Arguments are specified as two arrays of char* and GFont
 static void prv_render_cell(GRect bounds, GContext *ctx, CellSize cell_size, char *title,
-                            uint8_t num_args, ...) {
-  // get variable arguments
-  va_list a_list;
-  va_start(a_list, num_args);
+                            uint8_t array_length, char **text, GFont *font) {
   // draw header
   if (title && cell_size != CellSizeSmall) {
     graphics_context_set_text_color(ctx, GColorBulgarianRose);
@@ -128,9 +122,7 @@ static void prv_render_cell(GRect bounds, GContext *ctx, CellSize cell_size, cha
   }
   // draw body
   graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
-  prv_render_rich_text(bounds, ctx, num_args, a_list);
-  // end variable arguments
-  va_end(a_list);
+  prv_render_rich_text(bounds, ctx, array_length, text, font);
 }
 
 
@@ -159,11 +151,12 @@ static void prv_cell_render_clock_time(GRect bounds, GContext *ctx, CellSize cel
       bounds.size.h -= 8;
     }
     // draw text
-    prv_render_cell(bounds, ctx, cell_size, "Clock", 4, digit_buff, digit_font, symbol_buff,
-      symbol_font);
+    prv_render_cell(bounds, ctx, cell_size, "Clock", 2, (char*[]){ digit_buff, symbol_buff },
+      (GFont[]){ digit_font, symbol_font });
     if (cell_size == CellSizeLarge) {
       bounds.origin.y += 21;
-      prv_render_cell(bounds, ctx, cell_size, NULL, 2, date_buff, drawing_fonts.gothic_18_bold);
+      prv_render_cell(bounds, ctx, cell_size, NULL, 1, (char*[]){ date_buff },
+        (GFont[]){ drawing_fonts.gothic_18_bold });
     }
   } else {
     // draw background
@@ -226,9 +219,8 @@ static void prv_cell_render_run_time(GRect bounds, GContext *ctx, CellSize cell_
   char day_buff[4], hr_buff[3];
   snprintf(day_buff, sizeof(day_buff), "%d", days);
   snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
-  prv_render_cell(bounds, ctx, cell_size, "Run Time", 8, day_buff, digit_font, "d ", symbol_font,
-    hr_buff,
-    digit_font, "h", symbol_font);
+  prv_render_cell(bounds, ctx, cell_size, "Run Time", 4, (char*[]){ day_buff, "d ", hr_buff, "h" },
+    (GFont[]){ digit_font, symbol_font, digit_font, symbol_font });
   // if in full-screen mode
   if (cell_size == CellSizeFullScreen) {
     // render last charged
@@ -253,8 +245,8 @@ static void prv_cell_render_percent(GRect bounds, GContext *ctx, CellSize cell_s
   char buff[4];
   snprintf(buff, sizeof(buff), "%d", data_get_battery_percent());
   // draw text
-  prv_render_cell(bounds, ctx, cell_size, "Percent", 6, "   ", symbol_font, buff, digit_font, "%",
-    symbol_font);
+  prv_render_cell(bounds, ctx, cell_size, "Percent", 3, (char*[]){ "   ", buff, "%" },
+    (GFont[]){ symbol_font, digit_font, symbol_font } );
 }
 
 // Render time remaining cell
@@ -272,8 +264,8 @@ static void prv_cell_render_time_remaining(GRect bounds, GContext *ctx, CellSize
   snprintf(day_buff, sizeof(day_buff), "%d", days);
   snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
   // draw text
-  prv_render_cell(bounds, ctx, cell_size, "Remaining", 8, day_buff, digit_font, "d ",
-    symbol_font, hr_buff, digit_font, "h", symbol_font);
+  prv_render_cell(bounds, ctx, cell_size, "Remaining", 4, (char*[]){ day_buff, "d ", hr_buff, "h" },
+    (GFont[]){ digit_font, symbol_font, digit_font, symbol_font });
 }
 
 
@@ -298,13 +290,13 @@ static void prv_render_ring(GRect bounds, GContext *ctx) {
   // draw rings
   graphics_context_set_fill_color(ctx, COLOR_RING_LOW);
   graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius, 0,
-    drawing_data.ring_4hr_angle);
+    drawing_data.ring_low_angle);
   graphics_context_set_fill_color(ctx, COLOR_RING_MED);
   graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius,
-    drawing_data.ring_4hr_angle, drawing_data.ring_1day_angle);
+    drawing_data.ring_low_angle, drawing_data.ring_med_angle);
   graphics_context_set_fill_color(ctx, COLOR_RING_NORM);
   graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius,
-    drawing_data.ring_1day_angle, drawing_data.ring_level_angle);
+    drawing_data.ring_med_angle, drawing_data.ring_level_angle);
   graphics_context_set_fill_color(ctx, COLOR_BACKGROUND);
   graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius,
     drawing_data.ring_level_angle, TRIG_MAX_ANGLE);
@@ -381,12 +373,24 @@ void drawing_recalculate_progress_rings(void) {
   angle_low = angle_level < angle_low ? angle_level : angle_low;
   angle_med = angle_level < angle_med ? angle_level : angle_med;
   // animate to new values
-  animation_int32_start(&drawing_data.ring_4hr_angle, angle_low, ANI_DURATION,
-    STARTUP_ANI_DELAY, CurveSinEaseOut);
-  animation_int32_start(&drawing_data.ring_1day_angle, angle_med, ANI_DURATION,
-    STARTUP_ANI_DELAY, CurveSinEaseOut);
-  animation_int32_start(&drawing_data.ring_level_angle, angle_level, ANI_DURATION,
-    STARTUP_ANI_DELAY, CurveSinEaseOut);
+  if (abs(angle_low - drawing_data.ring_low_angle) < ANIMATION_ANGLE_CHANGE_THRESHOLD) {
+    animation_int32_start(&drawing_data.ring_low_angle, angle_low, ANI_DURATION,
+      STARTUP_ANI_DELAY, CurveSinEaseOut);
+  } else {
+    drawing_data.ring_low_angle = angle_low;
+  }
+  if (abs(angle_med - drawing_data.ring_med_angle) < ANIMATION_ANGLE_CHANGE_THRESHOLD) {
+    animation_int32_start(&drawing_data.ring_med_angle, angle_med, ANI_DURATION,
+      STARTUP_ANI_DELAY, CurveSinEaseOut);
+  } else {
+    drawing_data.ring_med_angle = angle_med;
+  }
+  if (abs(angle_level - drawing_data.ring_level_angle) < ANIMATION_ANGLE_CHANGE_THRESHOLD) {
+    animation_int32_start(&drawing_data.ring_level_angle, angle_level, ANI_DURATION,
+      STARTUP_ANI_DELAY, CurveSinEaseOut);
+  } else {
+    drawing_data.ring_level_angle = angle_level;
+  }
 }
 
 // Initialize drawing variables
@@ -407,7 +411,7 @@ void drawing_initialize(Layer *layer, MenuLayer *menu) {
   drawing_data.layer = layer;
   drawing_data.menu = menu;
   // set initial progress ring angles
-  drawing_data.ring_4hr_angle = drawing_data.ring_1day_angle = drawing_data.ring_level_angle = 0;
+  drawing_data.ring_low_angle = drawing_data.ring_med_angle = drawing_data.ring_level_angle = 0;
   // animate to new positions
   drawing_recalculate_progress_rings();
 }
