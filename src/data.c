@@ -105,7 +105,7 @@ int32_t data_get_run_time(void) {
 
 // Get the current percent-per-day of battery life
 int32_t data_get_percent_per_day(void) {
-  return 100 / ((data_get_max_life() + SEC_IN_DAY / 2) / SEC_IN_DAY);
+  return 10000 / (data_get_max_life() * 100 / SEC_IN_DAY);
 }
 
 // Get the current battery percentage (this is an estimate of the exact value)

@@ -225,24 +225,26 @@ static void prv_cell_render_run_time(GRect bounds, GContext *ctx, CellSize cell_
     (GFont[]){ digit_font, symbol_font, digit_font, symbol_font });
   // if in full-screen mode
   if (cell_size == CellSizeFullScreen) {
+    // temp variables
+    GRect tmp_bounds;
+    int day, hour;
+    char tmp_buff[16];
+    // render average life
+    tmp_bounds = GRect(0, MENU_CELL_FULL_SCREEN_TOP_OFFSET,
+      bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);
+    int32_t sec_avg_life = data_get_max_life();
+    day = sec_avg_life / SEC_IN_DAY;
+    hour = sec_avg_life % SEC_IN_DAY / SEC_IN_HR;
+    snprintf(tmp_buff, sizeof(tmp_buff), "%dd %dh", day, hour);
+    prv_render_cell(tmp_bounds, ctx, cell_size, "Avg Life", 1, (char*[]){ tmp_buff },
+      (GFont[]){ drawing_fonts.gothic_24_bold });
     // render last charged
-    GRect last_bounds = GRect(0, bounds.size.h - MENU_CELL_FULL_SCREEN_SUB_HEIGHT,
+    tmp_bounds = GRect(0, bounds.size.h - MENU_CELL_FULL_SCREEN_SUB_HEIGHT,
       bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);
     time_t lst_charge_epoch = data_get_last_charge_time();
     tm *lst_charge = localtime(&lst_charge_epoch);
-    char lst_charge_buff[16];
-    strftime(lst_charge_buff, sizeof(lst_charge_buff), "%A", lst_charge);
-    prv_render_cell(last_bounds, ctx, cell_size, "Last Charged", 1, (char*[]){ lst_charge_buff },
-      (GFont[]){ drawing_fonts.gothic_24_bold });
-    // render average life
-    GRect avg_bounds = GRect(0, MENU_CELL_FULL_SCREEN_TOP_OFFSET,
-      bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);
-    int32_t sec_avg_life = data_get_max_life();
-    days = sec_avg_life / SEC_IN_DAY;
-    hrs = sec_avg_life % SEC_IN_DAY / SEC_IN_HR;
-    char avg_life_buff[10];
-    snprintf(avg_life_buff, sizeof(avg_life_buff), "%dd %dh", days, hrs);
-    prv_render_cell(avg_bounds, ctx, cell_size, "Avg Life", 1, (char*[]){ avg_life_buff },
+    strftime(tmp_buff, sizeof(tmp_buff), "%A", lst_charge);
+    prv_render_cell(tmp_bounds, ctx, cell_size, "Last Charged", 1, (char*[]){ tmp_buff },
       (GFont[]){ drawing_fonts.gothic_24_bold });
   }
 }
@@ -257,8 +259,23 @@ static void prv_cell_render_percent(GRect bounds, GContext *ctx, CellSize cell_s
   char buff[4];
   snprintf(buff, sizeof(buff), "%d", data_get_battery_percent());
   // draw text
-  prv_render_cell(bounds, ctx, cell_size, "Percent", 3, (char*[]){ "   ", buff, "%" },
+  GRect main_bounds = grect_inset(bounds,
+    GEdgeInsets2((bounds.size.h - MENU_CELL_HEIGHT_TALL) / 2, 0));
+  prv_render_cell(main_bounds, ctx, cell_size, "Percent", 3, (char*[]){ "   ", buff, "%" },
     (GFont[]){ symbol_font, digit_font, symbol_font } );
+  // if in full-screen mode
+  if (cell_size == CellSizeFullScreen) {
+    // temp variables
+    GRect tmp_bounds;
+    int day, hour;
+    char tmp_buff[16];
+    // render percent per day
+    tmp_bounds = GRect(0, MENU_CELL_FULL_SCREEN_TOP_OFFSET,
+      bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);
+    snprintf(tmp_buff, sizeof(tmp_buff), "%d%% / day", (int)data_get_percent_per_day());
+    prv_render_cell(tmp_bounds, ctx, cell_size, "Rate", 1, (char*[]){ tmp_buff },
+      (GFont[]){ drawing_fonts.gothic_24_bold });
+  }
 }
 
 // Render time remaining cell
@@ -384,19 +401,19 @@ void drawing_recalculate_progress_rings(void) {
   angle_low = angle_level < angle_low ? angle_level : angle_low;
   angle_med = angle_level < angle_med ? angle_level : angle_med;
   // animate to new values
-  if (abs(angle_low - drawing_data.ring_low_angle) < ANIMATION_ANGLE_CHANGE_THRESHOLD) {
+  if (abs(angle_low - drawing_data.ring_low_angle) >= ANIMATION_ANGLE_CHANGE_THRESHOLD) {
     animation_int32_start(&drawing_data.ring_low_angle, angle_low, ANI_DURATION,
       STARTUP_ANI_DELAY, CurveSinEaseOut);
   } else {
     drawing_data.ring_low_angle = angle_low;
   }
-  if (abs(angle_med - drawing_data.ring_med_angle) < ANIMATION_ANGLE_CHANGE_THRESHOLD) {
+  if (abs(angle_med - drawing_data.ring_med_angle) >= ANIMATION_ANGLE_CHANGE_THRESHOLD) {
     animation_int32_start(&drawing_data.ring_med_angle, angle_med, ANI_DURATION,
       STARTUP_ANI_DELAY, CurveSinEaseOut);
   } else {
     drawing_data.ring_med_angle = angle_med;
   }
-  if (abs(angle_level - drawing_data.ring_level_angle) < ANIMATION_ANGLE_CHANGE_THRESHOLD) {
+  if (abs(angle_level - drawing_data.ring_level_angle) >= ANIMATION_ANGLE_CHANGE_THRESHOLD) {
     animation_int32_start(&drawing_data.ring_level_angle, angle_level, ANI_DURATION,
       STARTUP_ANI_DELAY, CurveSinEaseOut);
   } else {
