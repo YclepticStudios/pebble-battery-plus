@@ -213,25 +213,37 @@ static void prv_cell_render_run_time(GRect bounds, GContext *ctx, CellSize cell_
   GFont digit_font = (cell_size == CellSizeSmall) ?
     drawing_fonts.leco_26_bold : drawing_fonts.leco_36_bold;
   // render run time
+  GRect main_bounds = grect_inset(bounds,
+    GEdgeInsets2((bounds.size.h - MENU_CELL_HEIGHT_TALL) / 2, 0));
   int32_t sec_run_time = data_get_run_time();
   int days = sec_run_time / SEC_IN_DAY;
   int hrs = sec_run_time % SEC_IN_DAY / SEC_IN_HR;
   char day_buff[4], hr_buff[3];
   snprintf(day_buff, sizeof(day_buff), "%d", days);
   snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
-  prv_render_cell(bounds, ctx, cell_size, "Run Time", 4, (char*[]){ day_buff, "d ", hr_buff, "h" },
+  prv_render_cell(main_bounds, ctx, cell_size, "Run Time", 4, (char*[]){ day_buff, "d ", hr_buff, "h" },
     (GFont[]){ digit_font, symbol_font, digit_font, symbol_font });
   // if in full-screen mode
   if (cell_size == CellSizeFullScreen) {
     // render last charged
-    int32_t lst_charge_epoch = data_get_last_charge_time();
-    tm *lst_charge = localtime((time_t*)(&lst_charge_epoch));
-    char lst_charge_buff[18];
-    strftime(lst_charge_buff, sizeof(lst_charge_buff), "%a %e, %l:%M %p", lst_charge);
-    GRect tmp_bounds = bounds;
-    tmp_bounds.size.h /= 3;
-    graphics_draw_text(ctx, lst_charge_buff, drawing_fonts.gothic_24_bold,
-      tmp_bounds, GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+    GRect last_bounds = GRect(0, bounds.size.h - MENU_CELL_FULL_SCREEN_SUB_HEIGHT,
+      bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);
+    time_t lst_charge_epoch = data_get_last_charge_time();
+    tm *lst_charge = localtime(&lst_charge_epoch);
+    char lst_charge_buff[16];
+    strftime(lst_charge_buff, sizeof(lst_charge_buff), "%A", lst_charge);
+    prv_render_cell(last_bounds, ctx, cell_size, "Last Charged", 1, (char*[]){ lst_charge_buff },
+      (GFont[]){ drawing_fonts.gothic_24_bold });
+    // render average life
+    GRect avg_bounds = GRect(0, MENU_CELL_FULL_SCREEN_TOP_OFFSET,
+      bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);
+    int32_t sec_avg_life = data_get_max_life();
+    days = sec_avg_life / SEC_IN_DAY;
+    hrs = sec_avg_life % SEC_IN_DAY / SEC_IN_HR;
+    char avg_life_buff[10];
+    snprintf(avg_life_buff, sizeof(avg_life_buff), "%dd %dh", days, hrs);
+    prv_render_cell(avg_bounds, ctx, cell_size, "Avg Life", 1, (char*[]){ avg_life_buff },
+      (GFont[]){ drawing_fonts.gothic_24_bold });
   }
 }
 
@@ -352,7 +364,6 @@ void drawing_render_cell(MenuLayer *menu, Layer *layer, GContext *ctx, MenuIndex
       prv_cell_render_time_remaining(bounds, ctx, cell_size);
       break;
     default:
-      // NOTE: this function causes random crashing of the watch
 //      menu_cell_basic_draw(ctx, layer, "<empty>", NULL, NULL);
       break;
   }

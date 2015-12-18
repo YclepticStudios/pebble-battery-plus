@@ -14,6 +14,8 @@
 #define RING_WIDTH PBL_IF_ROUND_ELSE(18, 16)
 #define COLOR_MENU_BACKGROUND GColorRajah
 #define MENU_CELL_HEIGHT_TALL 65
+#define MENU_CELL_FULL_SCREEN_SUB_HEIGHT 49
+#define MENU_CELL_FULL_SCREEN_TOP_OFFSET PBL_IF_ROUND_ELSE(3, 0)
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
