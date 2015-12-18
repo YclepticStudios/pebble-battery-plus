@@ -151,12 +151,14 @@ static void prv_cell_render_clock_time(GRect bounds, GContext *ctx, CellSize cel
       bounds.size.h -= 8;
     }
     // draw text
-    prv_render_cell(bounds, ctx, cell_size, "Clock", 2, (char*[]){ digit_buff, symbol_buff },
-      (GFont[]){ digit_font, symbol_font });
+    char *text_0[2] = { digit_buff, symbol_buff };
+    GFont font_0[2] = { digit_font, symbol_font };
+    prv_render_cell(bounds, ctx, cell_size, "Clock", 2, text_0, font_0);
     if (cell_size == CellSizeLarge) {
       bounds.origin.y += 21;
-      prv_render_cell(bounds, ctx, cell_size, NULL, 1, (char*[]){ date_buff },
-        (GFont[]){ drawing_fonts.gothic_18_bold });
+      char *text_1[1] = { date_buff };
+      GFont font_1[1] = { drawing_fonts.gothic_18_bold };
+      prv_render_cell(bounds, ctx, cell_size, NULL, 1, text_1, font_1);
     }
   } else {
     // draw background
@@ -221,8 +223,9 @@ static void prv_cell_render_run_time(GRect bounds, GContext *ctx, CellSize cell_
   char day_buff[4], hr_buff[3];
   snprintf(day_buff, sizeof(day_buff), "%d", days);
   snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
-  prv_render_cell(main_bounds, ctx, cell_size, "Run Time", 4, (char*[]){ day_buff, "d ", hr_buff, "h" },
-    (GFont[]){ digit_font, symbol_font, digit_font, symbol_font });
+  char *text_0[4] = { day_buff, "d ", hr_buff, "h" };
+  GFont font_0[4] = { digit_font, symbol_font, digit_font, symbol_font };
+  prv_render_cell(main_bounds, ctx, cell_size, "Run Time", 4, text_0, font_0);
   // if in full-screen mode
   if (cell_size == CellSizeFullScreen) {
     // temp variables
@@ -236,16 +239,18 @@ static void prv_cell_render_run_time(GRect bounds, GContext *ctx, CellSize cell_
     day = sec_avg_life / SEC_IN_DAY;
     hour = sec_avg_life % SEC_IN_DAY / SEC_IN_HR;
     snprintf(tmp_buff, sizeof(tmp_buff), "%dd %dh", day, hour);
-    prv_render_cell(tmp_bounds, ctx, cell_size, "Avg Life", 1, (char*[]){ tmp_buff },
-      (GFont[]){ drawing_fonts.gothic_24_bold });
+    char *text_1[1] = { tmp_buff };
+    GFont font_1[1] = { drawing_fonts.gothic_24_bold };
+    prv_render_cell(tmp_bounds, ctx, cell_size, "Avg Life", 1, text_1, font_1);
     // render last charged
     tmp_bounds = GRect(0, bounds.size.h - MENU_CELL_FULL_SCREEN_SUB_HEIGHT,
       bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);
     time_t lst_charge_epoch = data_get_last_charge_time();
     tm *lst_charge = localtime(&lst_charge_epoch);
     strftime(tmp_buff, sizeof(tmp_buff), "%A", lst_charge);
-    prv_render_cell(tmp_bounds, ctx, cell_size, "Last Charged", 1, (char*[]){ tmp_buff },
-      (GFont[]){ drawing_fonts.gothic_24_bold });
+    char *text_2[1] = { tmp_buff };
+    GFont font_2[1] = { drawing_fonts.gothic_24_bold };
+    prv_render_cell(tmp_bounds, ctx, cell_size, "Last Charged", 1, text_2, font_2);
   }
 }
 
@@ -261,8 +266,9 @@ static void prv_cell_render_percent(GRect bounds, GContext *ctx, CellSize cell_s
   // draw text
   GRect main_bounds = grect_inset(bounds,
     GEdgeInsets2((bounds.size.h - MENU_CELL_HEIGHT_TALL) / 2, 0));
-  prv_render_cell(main_bounds, ctx, cell_size, "Percent", 3, (char*[]){ "   ", buff, "%" },
-    (GFont[]){ symbol_font, digit_font, symbol_font } );
+  char *text[3] = { "   ", buff, "%" };
+  GFont font[3] = { symbol_font, digit_font, symbol_font };
+  prv_render_cell(main_bounds, ctx, cell_size, "Percent", 3, text, font);
   // if in full-screen mode
   if (cell_size == CellSizeFullScreen) {
     // temp variables
@@ -273,8 +279,9 @@ static void prv_cell_render_percent(GRect bounds, GContext *ctx, CellSize cell_s
     tmp_bounds = GRect(0, MENU_CELL_FULL_SCREEN_TOP_OFFSET,
       bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);
     snprintf(tmp_buff, sizeof(tmp_buff), "%d%% / day", (int)data_get_percent_per_day());
-    prv_render_cell(tmp_bounds, ctx, cell_size, "Rate", 1, (char*[]){ tmp_buff },
-      (GFont[]){ drawing_fonts.gothic_24_bold });
+    char *text_1[1] = { tmp_buff };
+    GFont font_1[1] = { drawing_fonts.gothic_24_bold };
+    prv_render_cell(tmp_bounds, ctx, cell_size, "Rate", 1, text_1, font_1);
   }
 }
 
@@ -293,8 +300,9 @@ static void prv_cell_render_time_remaining(GRect bounds, GContext *ctx, CellSize
   snprintf(day_buff, sizeof(day_buff), "%d", days);
   snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
   // draw text
-  prv_render_cell(bounds, ctx, cell_size, "Remaining", 4, (char*[]){ day_buff, "d ", hr_buff, "h" },
-    (GFont[]){ digit_font, symbol_font, digit_font, symbol_font });
+  char *text[4] = { day_buff, "d ", hr_buff, "h" };
+  GFont font[4] = { digit_font, symbol_font, digit_font, symbol_font };
+  prv_render_cell(bounds, ctx, cell_size, "Remaining", 4, text, font);
 }
 
 
