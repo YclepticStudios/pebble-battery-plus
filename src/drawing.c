@@ -10,7 +10,6 @@
 #include "drawing.h"
 #include "animation/animation.h"
 #include "data.h"
-#include "stdarg.h"
 #include "utility.h"
 
 // Data constants
@@ -45,19 +44,6 @@ static struct {
   int32_t     ring_low_angle;     //< The angle for the start of the red ring
 } drawing_data;
 
-// Different fonts used to draw
-static struct {
-  GFont       gothic_14;          //< FONT_KEY_GOTHIC_14
-  GFont       gothic_14_bold;     //< FONT_KEY_GOTHIC_14_BOLD
-  GFont       gothic_18;          //< FONT_KEY_GOTHIC_18
-  GFont       gothic_18_bold;     //< FONT_KEY_GOTHIC_18_BOLD
-  GFont       gothic_24_bold;     //< FONT_KEY_GOTHIC_24_BOLD
-  GFont       leco_26_bold;       //< FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM
-  GFont       leco_32_bold;       //< FONT_KEY_LECO_32_BOLD_NUMBERS
-  GFont       leco_36_bold;       //< FONT_KEY_LECO_36_BOLD_NUMBERS
-  GFont       leco_42;            //< FONT_KEY_LECO_42_NUMBERS
-} drawing_fonts;
-
 // Cell size type
 typedef enum {
   CellSizeSmall,
@@ -77,20 +63,22 @@ static void prv_render_header_text(GRect bounds, GContext *ctx, char *text) {
   GTextAttributes *header_attr = graphics_text_attributes_create();
   graphics_text_attributes_enable_screen_text_flow(header_attr, RING_WIDTH + 5);
   // draw text
-  graphics_draw_text(ctx, text, drawing_fonts.gothic_14, bounds,
-    GTextOverflowModeFill, text_alignment, header_attr);
+  GFont font_gothic_14 = fonts_get_system_font(FONT_KEY_GOTHIC_14);
+  graphics_draw_text(ctx, text, font_gothic_14, bounds, GTextOverflowModeFill,
+    text_alignment, header_attr);
   graphics_text_attributes_destroy(header_attr);
 }
 
 // Render rich text with different fonts
 // Arguments are specified as two arrays of char* and GFont
 static void prv_render_rich_text(GRect bounds, GContext *ctx, uint8_t array_length,
-                                 char **text, GFont *font) {
+                                 char **text, char **font) {
   // calculate the rendered size of each string
   int16_t max_height = 0, tot_width = 0;
   GRect txt_bounds[array_length];
   for (uint8_t ii = 0; ii < array_length; ii++) {
-    txt_bounds[ii].size = graphics_text_layout_get_content_size(text[ii], font[ii], bounds,
+    GFont tmp_font = fonts_get_system_font(font[ii]);
+    txt_bounds[ii].size = graphics_text_layout_get_content_size(text[ii], tmp_font, bounds,
       GTextOverflowModeFill, GTextAlignmentLeft);
     max_height = (max_height > txt_bounds[ii].size.h) ? max_height : txt_bounds[ii].size.h;
     tot_width += txt_bounds[ii].size.w;
@@ -106,7 +94,8 @@ static void prv_render_rich_text(GRect bounds, GContext *ctx, uint8_t array_leng
   }
   // draw each string
   for (uint8_t ii = 0; ii < array_length; ii++) {
-    graphics_draw_text(ctx, text[ii], font[ii], txt_bounds[ii], GTextOverflowModeFill,
+    GFont tmp_font = fonts_get_system_font(font[ii]);
+    graphics_draw_text(ctx, text[ii], tmp_font, txt_bounds[ii], GTextOverflowModeFill,
       GTextAlignmentLeft, NULL);
   }
 }
@@ -114,7 +103,7 @@ static void prv_render_rich_text(GRect bounds, GContext *ctx, uint8_t array_leng
 // Render a cell with a title and rich formatted content
 // Arguments are specified as two arrays of char* and GFont
 static void prv_render_cell(GRect bounds, GContext *ctx, CellSize cell_size, char *title,
-                            uint8_t array_length, char **text, GFont *font) {
+                            uint8_t array_length, char **text, char **font) {
   // draw header
   if (title && cell_size != CellSizeSmall) {
     graphics_context_set_text_color(ctx, GColorBulgarianRose);
@@ -138,9 +127,9 @@ static void prv_cell_render_clock_time(GRect bounds, GContext *ctx, CellSize cel
   // check draw mode
   if (cell_size != CellSizeFullScreen) {
     // get fonts
-    GFont symbol_font = drawing_fonts.gothic_14_bold;
-    GFont digit_font = (cell_size == CellSizeSmall) ?
-      drawing_fonts.leco_26_bold : drawing_fonts.leco_32_bold;
+    char *symbol_font = FONT_KEY_GOTHIC_14_BOLD;
+    char *digit_font = (cell_size == CellSizeSmall) ?
+      FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM : FONT_KEY_LECO_32_BOLD_NUMBERS;
     // get text
     char digit_buff[6], symbol_buff[3], date_buff[16];
     strftime(digit_buff, sizeof(digit_buff), "%l:%M", tm_time);
@@ -152,12 +141,12 @@ static void prv_cell_render_clock_time(GRect bounds, GContext *ctx, CellSize cel
     }
     // draw text
     char *text_0[2] = { digit_buff, symbol_buff };
-    GFont font_0[2] = { digit_font, symbol_font };
+    char *font_0[2] = { digit_font, symbol_font };
     prv_render_cell(bounds, ctx, cell_size, "Clock", 2, text_0, font_0);
     if (cell_size == CellSizeLarge) {
       bounds.origin.y += 21;
       char *text_1[1] = { date_buff };
-      GFont font_1[1] = { drawing_fonts.gothic_18_bold };
+      char *font_1[1] = { FONT_KEY_GOTHIC_18_BOLD };
       prv_render_cell(bounds, ctx, cell_size, NULL, 1, text_1, font_1);
     }
   } else {
@@ -189,7 +178,8 @@ static void prv_cell_render_clock_time(GRect bounds, GContext *ctx, CellSize cel
       char date_buff[3];
       strftime(date_buff, sizeof(date_buff), "%e", tm_time);
       graphics_context_set_text_color(ctx, GColorChromeYellow);
-      graphics_draw_text(ctx, date_buff, drawing_fonts.gothic_18, date_bounds,
+      GFont font_gothic_18 = fonts_get_system_font(FONT_KEY_GOTHIC_18);
+      graphics_draw_text(ctx, date_buff, font_gothic_18, date_bounds,
         GTextOverflowModeFill, GTextAlignmentCenter, NULL);
     }
     // calculate hands
@@ -211,9 +201,9 @@ static void prv_cell_render_clock_time(GRect bounds, GContext *ctx, CellSize cel
 // Render run time cell
 static void prv_cell_render_run_time(GRect bounds, GContext *ctx, CellSize cell_size) {
   // get fonts
-  GFont symbol_font = drawing_fonts.gothic_18_bold;
-  GFont digit_font = (cell_size == CellSizeSmall) ?
-    drawing_fonts.leco_26_bold : drawing_fonts.leco_36_bold;
+  char *symbol_font = FONT_KEY_GOTHIC_18_BOLD;
+  char *digit_font = (cell_size == CellSizeSmall) ?
+    FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM : FONT_KEY_LECO_36_BOLD_NUMBERS;
   // render run time
   GRect main_bounds = grect_inset(bounds,
     GEdgeInsets2((bounds.size.h - MENU_CELL_HEIGHT_TALL) / 2, 0));
@@ -224,7 +214,7 @@ static void prv_cell_render_run_time(GRect bounds, GContext *ctx, CellSize cell_
   snprintf(day_buff, sizeof(day_buff), "%d", days);
   snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
   char *text_0[4] = { day_buff, "d ", hr_buff, "h" };
-  GFont font_0[4] = { digit_font, symbol_font, digit_font, symbol_font };
+  char *font_0[4] = { digit_font, symbol_font, digit_font, symbol_font };
   prv_render_cell(main_bounds, ctx, cell_size, "Run Time", 4, text_0, font_0);
   // if in full-screen mode
   if (cell_size == CellSizeFullScreen) {
@@ -240,7 +230,7 @@ static void prv_cell_render_run_time(GRect bounds, GContext *ctx, CellSize cell_
     hour = sec_avg_life % SEC_IN_DAY / SEC_IN_HR;
     snprintf(tmp_buff, sizeof(tmp_buff), "%dd %dh", day, hour);
     char *text_1[1] = { tmp_buff };
-    GFont font_1[1] = { drawing_fonts.gothic_24_bold };
+    char *font_1[1] = { FONT_KEY_GOTHIC_24_BOLD };
     prv_render_cell(tmp_bounds, ctx, cell_size, "Avg Life", 1, text_1, font_1);
     // render last charged
     tmp_bounds = GRect(0, bounds.size.h - MENU_CELL_FULL_SCREEN_SUB_HEIGHT,
@@ -249,7 +239,7 @@ static void prv_cell_render_run_time(GRect bounds, GContext *ctx, CellSize cell_
     tm *lst_charge = localtime(&lst_charge_epoch);
     strftime(tmp_buff, sizeof(tmp_buff), "%A", lst_charge);
     char *text_2[1] = { tmp_buff };
-    GFont font_2[1] = { drawing_fonts.gothic_24_bold };
+    char *font_2[1] = { FONT_KEY_GOTHIC_24_BOLD };
     prv_render_cell(tmp_bounds, ctx, cell_size, "Last Charged", 1, text_2, font_2);
   }
 }
@@ -257,9 +247,9 @@ static void prv_cell_render_run_time(GRect bounds, GContext *ctx, CellSize cell_
 // Render battery percent cell
 static void prv_cell_render_percent(GRect bounds, GContext *ctx, CellSize cell_size) {
   // get fonts
-  GFont symbol_font = drawing_fonts.gothic_18_bold;
-  GFont digit_font = (cell_size == CellSizeSmall) ?
-    drawing_fonts.leco_26_bold : drawing_fonts.leco_42;
+  char *symbol_font = FONT_KEY_GOTHIC_18_BOLD;
+  char *digit_font = (cell_size == CellSizeSmall) ?
+    FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM : FONT_KEY_LECO_42_NUMBERS;
   // get text
   char buff[4];
   snprintf(buff, sizeof(buff), "%d", data_get_battery_percent());
@@ -267,20 +257,19 @@ static void prv_cell_render_percent(GRect bounds, GContext *ctx, CellSize cell_s
   GRect main_bounds = grect_inset(bounds,
     GEdgeInsets2((bounds.size.h - MENU_CELL_HEIGHT_TALL) / 2, 0));
   char *text[3] = { "   ", buff, "%" };
-  GFont font[3] = { symbol_font, digit_font, symbol_font };
+  char *font[3] = { symbol_font, digit_font, symbol_font };
   prv_render_cell(main_bounds, ctx, cell_size, "Percent", 3, text, font);
   // if in full-screen mode
   if (cell_size == CellSizeFullScreen) {
     // temp variables
     GRect tmp_bounds;
-    int day, hour;
     char tmp_buff[16];
     // render percent per day
     tmp_bounds = GRect(0, MENU_CELL_FULL_SCREEN_TOP_OFFSET,
       bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);
     snprintf(tmp_buff, sizeof(tmp_buff), "%d%% / day", (int)data_get_percent_per_day());
     char *text_1[1] = { tmp_buff };
-    GFont font_1[1] = { drawing_fonts.gothic_24_bold };
+    char *font_1[1] = { FONT_KEY_GOTHIC_24_BOLD };
     prv_render_cell(tmp_bounds, ctx, cell_size, "Rate", 1, text_1, font_1);
   }
 }
@@ -288,9 +277,9 @@ static void prv_cell_render_percent(GRect bounds, GContext *ctx, CellSize cell_s
 // Render time remaining cell
 static void prv_cell_render_time_remaining(GRect bounds, GContext *ctx, CellSize cell_size) {
   // get fonts
-  GFont symbol_font = drawing_fonts.gothic_18_bold;
-  GFont digit_font = (cell_size == CellSizeSmall) ?
-    drawing_fonts.leco_26_bold : drawing_fonts.leco_36_bold;
+  char *symbol_font = FONT_KEY_GOTHIC_18_BOLD;
+  char *digit_font = (cell_size == CellSizeSmall) ?
+    FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM : FONT_KEY_LECO_36_BOLD_NUMBERS;
   // calculate time remaining
   int32_t sec_remaining = data_get_life_remaining();
   int days = sec_remaining / SEC_IN_DAY;
@@ -301,7 +290,7 @@ static void prv_cell_render_time_remaining(GRect bounds, GContext *ctx, CellSize
   snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
   // draw text
   char *text[4] = { day_buff, "d ", hr_buff, "h" };
-  GFont font[4] = { digit_font, symbol_font, digit_font, symbol_font };
+  char *font[4] = { digit_font, symbol_font, digit_font, symbol_font };
   prv_render_cell(bounds, ctx, cell_size, "Remaining", 4, text, font);
 }
 
@@ -431,16 +420,6 @@ void drawing_recalculate_progress_rings(void) {
 
 // Initialize drawing variables
 void drawing_initialize(Layer *layer, MenuLayer *menu) {
-  // load fonts
-  drawing_fonts.gothic_14 = fonts_get_system_font(FONT_KEY_GOTHIC_14);
-  drawing_fonts.gothic_14_bold = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
-  drawing_fonts.gothic_18 = fonts_get_system_font(FONT_KEY_GOTHIC_18);
-  drawing_fonts.gothic_18_bold = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-  drawing_fonts.gothic_24_bold = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  drawing_fonts.leco_26_bold = fonts_get_system_font(FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM);
-  drawing_fonts.leco_32_bold = fonts_get_system_font(FONT_KEY_LECO_32_BOLD_NUMBERS);
-  drawing_fonts.leco_36_bold = fonts_get_system_font(FONT_KEY_LECO_36_BOLD_NUMBERS);
-  drawing_fonts.leco_42 = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
   // register animation callback
   animation_register_update_callback(prv_animation_refresh_handler);
   // store layer pointer
