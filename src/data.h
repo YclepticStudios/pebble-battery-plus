@@ -23,6 +23,10 @@ int32_t data_get_life_remaining(void);
 //! @return The time the watch was lasted charged as a UTC epoch
 int32_t data_get_last_charge_time(void);
 
+//! Get the record run time of the watch
+//! @return The record run time of the watch in seconds
+int32_t data_get_record_run_time(void);
+
 //! Get the current run time of the watch in seconds (if no charge data, returns app install time)
 //! @return The number of seconds since the last charge
 int32_t data_get_run_time(void);

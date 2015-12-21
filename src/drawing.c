@@ -233,10 +233,17 @@ static void prv_cell_render_run_time(GRect bounds, GContext *ctx, CellSize cell_
     GRect tmp_bounds;
     int day, hour;
     char tmp_buff[16];
-    // render average life
+    // render record life
+    tmp_bounds = GRect(0, MENU_CELL_FULL_SCREEN_TOP_OFFSET,
+      bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);
+    int32_t sec_record_life = data_get_record_run_time();
+    day = sec_record_life / SEC_IN_DAY;
+    hour = sec_record_life % SEC_IN_DAY / SEC_IN_HR;
+    snprintf(tmp_buff, sizeof(tmp_buff), "%dd %02dh", day, hour);
     RichTextElement rich_text_2[] = {
       {tmp_buff, FONT_KEY_GOTHIC_24_BOLD}
     };
+    prv_render_cell(tmp_bounds, ctx, cell_size, "Record", ARRAY_LENGTH(rich_text_2), rich_text_2);
     // render last charged
     tmp_bounds = GRect(0, bounds.size.h - MENU_CELL_FULL_SCREEN_SUB_HEIGHT,
       bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);

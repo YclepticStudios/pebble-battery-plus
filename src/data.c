@@ -13,6 +13,8 @@
 
 // Constants
 #define PERSIST_DATA_LENGTH 256
+#define STATS_LAST_CHARGE_KEY 997
+#define STATS_RECORD_LIFE_KEY 998
 #define STATS_CHARGE_RATE_KEY 999
 #define DATA_PERSIST_KEY 1000
 
@@ -27,7 +29,7 @@ typedef struct DataNode {
 
 // Main variables
 static DataNode *head_node = NULL; // Newest at start
-static int32_t charge_rate;
+static int32_t prv_charge_rate, prv_last_charged, prv_record_life;
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -81,26 +83,29 @@ int32_t data_get_life_remaining(void) {
   // get latest node
   DataNode tmp_node = prv_get_latest_node();
   // calculate time remaining
-  return tmp_node.epoch + tmp_node.percent * -charge_rate - time(NULL);
+  return tmp_node.epoch + tmp_node.percent * (-prv_charge_rate) - time(NULL);
 }
 
 // Get the time the watch was last charged
+// Based off app install time if no data
 int32_t data_get_last_charge_time(void) {
   return time(NULL) - data_get_run_time();
 }
 
-// Get the current run time of the watch in seconds (if no charge data, returns app install time)
-int32_t data_get_run_time(void) {
-  // last charge time
-  uint32_t lst_charge_time = time(NULL);
-  // loop over nodes
-  DataNode *cur_node = head_node;
-  while (cur_node && !cur_node->charging) {
-    lst_charge_time = cur_node->epoch;
-    cur_node = cur_node->next;
+// Get the record run time of the watch
+// Based off app install time if no data
+int32_t data_get_record_run_time(void) {
+  // check if current run time is greater than record
+  if (data_get_run_time() > prv_record_life) {
+    return data_get_run_time();
   }
-  // return time in seconds
-  return time(NULL) - lst_charge_time;
+  return prv_record_life;
+}
+
+// Get the current run time of the watch in seconds
+// If no charge data, returns app install time
+int32_t data_get_run_time(void) {
+  return time(NULL) - prv_last_charged;
 }
 
 // Get the current percent-per-day of battery life
@@ -113,7 +118,7 @@ uint8_t data_get_battery_percent(void) {
   // get latest node
   DataNode tmp_node = prv_get_latest_node();
   // calculate exact percent
-  int32_t percent = tmp_node.percent + (time(NULL) - tmp_node.epoch) / charge_rate;
+  int32_t percent = tmp_node.percent + (time(NULL) - tmp_node.epoch) / prv_charge_rate;
   if (percent > tmp_node.percent) {
     percent = tmp_node.percent;
   } else if (percent <= tmp_node.percent - 10) {
@@ -127,15 +132,15 @@ uint8_t data_get_battery_percent(void) {
 
 // Get the maximum battery life possible with the current discharge rate
 int32_t data_get_max_life(void) {
-  return charge_rate * (-100);
+  return prv_charge_rate * (-100);
 }
 
 // Get the current charge rate in seconds per percent (will always be negative since discharging)
 int32_t data_get_charge_rate(void) {
-  return charge_rate;
+  return prv_charge_rate;
 }
 
-// Load the past X days of data + at least last charge included
+// Load the past X days of data
 void data_load_past_days(uint8_t num_days) {
   if (!persist_exists(DATA_PERSIST_KEY)) {
     return;
@@ -143,13 +148,14 @@ void data_load_past_days(uint8_t num_days) {
   // unload any current data first
   data_unload();
   // load current charge rate estimate
-  charge_rate = persist_read_int(STATS_CHARGE_RATE_KEY);
+  prv_last_charged = persist_read_int(STATS_LAST_CHARGE_KEY);
+  prv_record_life = persist_read_int(STATS_RECORD_LIFE_KEY);
+  prv_charge_rate = persist_read_int(STATS_CHARGE_RATE_KEY);
   // prep for data
   uint32_t persist_key = persist_read_int(DATA_PERSIST_KEY);
   uint32_t worker_node_size = sizeof(DataNode) - sizeof(((DataNode*)0)->next);
   char buff[PERSIST_DATA_LENGTH];
   // loop over data
-  bool has_charged_node = false;
   while (persist_key > DATA_PERSIST_KEY && persist_exists(persist_key)) {
     persist_read_data(persist_key, buff, persist_get_size(persist_key));
     for (char *ptr = buff + persist_get_size(persist_key) - worker_node_size; ptr >= buff;
@@ -160,8 +166,7 @@ void data_load_past_days(uint8_t num_days) {
       new_node->next = NULL;
       prv_list_add_node_end(new_node);
       // check if passed the number of days
-      has_charged_node = has_charged_node || new_node->charging;
-      if (new_node->epoch < time(NULL) - num_days * SEC_IN_DAY && has_charged_node) {
+      if (new_node->epoch < time(NULL) - num_days * SEC_IN_DAY) {
         return;
       }
     }
@@ -196,5 +201,7 @@ void data_print_csv(void) {
     cur_node = cur_node->next;
   }
   // print charge rate
-  printf("\nCharge Rate: %d", (int)charge_rate);
+  printf("\nLast Charged: %d", (int)prv_last_charged);
+  printf("\nRecord Life: %d", (int)prv_record_life);
+  printf("\nCharge Rate: %d", (int)prv_charge_rate);
 }
