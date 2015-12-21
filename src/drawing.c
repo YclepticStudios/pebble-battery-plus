@@ -135,8 +135,8 @@ static void prv_cell_render_clock_time(GRect bounds, GContext *ctx, CellSize cel
     char *digit_font = (cell_size == CellSizeSmall) ?
       FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM : FONT_KEY_LECO_32_BOLD_NUMBERS;
     // get text
-    char digit_buff[6], symbol_buff[3], date_buff[16];
-    strftime(digit_buff, sizeof(digit_buff), "%l:%M", tm_time);
+    char digit_buff[8], symbol_buff[3], date_buff[16];
+    strftime(digit_buff, sizeof(digit_buff), " %l:%M", tm_time);
     strftime(symbol_buff, sizeof(symbol_buff), "%p", tm_time);
     strftime(date_buff, sizeof(date_buff), "%a, %b %e", tm_time);
     // get bounds
@@ -249,7 +249,7 @@ static void prv_cell_render_run_time(GRect bounds, GContext *ctx, CellSize cell_
       bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);
     time_t lst_charge_epoch = data_get_last_charge_time();
     tm *lst_charge = localtime(&lst_charge_epoch);
-    strftime(tmp_buff, sizeof(tmp_buff), "%A", lst_charge);
+    strftime(tmp_buff, sizeof(tmp_buff), "%a %k:%M", lst_charge);
     prv_render_cell(tmp_bounds, ctx, cell_size, "Last Charged", ARRAY_LENGTH(rich_text_2),
       rich_text_2);
   }
