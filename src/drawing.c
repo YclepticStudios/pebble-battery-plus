@@ -44,6 +44,12 @@ static struct {
   int32_t     ring_low_angle;     //< The angle for the start of the red ring
 } drawing_data;
 
+// Rich text element
+typedef struct {
+  char        *text;              //< Pointer to text to draw
+  char        *font;              //< Pointer to font face string to draw with
+} RichTextElement;
+
 // Cell size type
 typedef enum {
   CellSizeSmall,
@@ -59,27 +65,25 @@ typedef enum {
 // Render cell header
 static void prv_render_header_text(GRect bounds, GContext *ctx, char *text) {
   // format text
-  GTextAlignment text_alignment = GTextAlignmentLeft;
   GTextAttributes *header_attr = graphics_text_attributes_create();
   graphics_text_attributes_enable_screen_text_flow(header_attr, RING_WIDTH + 5);
   // draw text
   GFont font_gothic_14 = fonts_get_system_font(FONT_KEY_GOTHIC_14);
   graphics_draw_text(ctx, text, font_gothic_14, bounds, GTextOverflowModeFill,
-    text_alignment, header_attr);
+    GTextAlignmentLeft, PBL_IF_BW_ELSE(NULL, header_attr)); // TODO: FIX SCREEN FLOW
   graphics_text_attributes_destroy(header_attr);
 }
 
 // Render rich text with different fonts
-// Arguments are specified as two arrays of char* and GFont
 static void prv_render_rich_text(GRect bounds, GContext *ctx, uint8_t array_length,
-                                 char **text, char **font) {
+                                 RichTextElement *rich_text) {
   // calculate the rendered size of each string
   int16_t max_height = 0, tot_width = 0;
   GRect txt_bounds[array_length];
   for (uint8_t ii = 0; ii < array_length; ii++) {
-    GFont tmp_font = fonts_get_system_font(font[ii]);
-    txt_bounds[ii].size = graphics_text_layout_get_content_size(text[ii], tmp_font, bounds,
-      GTextOverflowModeFill, GTextAlignmentLeft);
+    GFont tmp_font = fonts_get_system_font(rich_text[ii].font);
+    txt_bounds[ii].size = graphics_text_layout_get_content_size(rich_text[ii].text, tmp_font,
+      bounds, GTextOverflowModeFill, GTextAlignmentLeft);
     max_height = (max_height > txt_bounds[ii].size.h) ? max_height : txt_bounds[ii].size.h;
     tot_width += txt_bounds[ii].size.w;
   }
@@ -94,8 +98,8 @@ static void prv_render_rich_text(GRect bounds, GContext *ctx, uint8_t array_leng
   }
   // draw each string
   for (uint8_t ii = 0; ii < array_length; ii++) {
-    GFont tmp_font = fonts_get_system_font(font[ii]);
-    graphics_draw_text(ctx, text[ii], tmp_font, txt_bounds[ii], GTextOverflowModeFill,
+    GFont tmp_font = fonts_get_system_font(rich_text[ii].font);
+    graphics_draw_text(ctx, rich_text[ii].text, tmp_font, txt_bounds[ii], GTextOverflowModeFill,
       GTextAlignmentLeft, NULL);
   }
 }
@@ -103,7 +107,7 @@ static void prv_render_rich_text(GRect bounds, GContext *ctx, uint8_t array_leng
 // Render a cell with a title and rich formatted content
 // Arguments are specified as two arrays of char* and GFont
 static void prv_render_cell(GRect bounds, GContext *ctx, CellSize cell_size, char *title,
-                            uint8_t array_length, char **text, char **font) {
+                            uint8_t array_length, RichTextElement *rich_text) {
   // draw header
   if (title && cell_size != CellSizeSmall) {
     graphics_context_set_text_color(ctx, GColorBulgarianRose);
@@ -111,7 +115,7 @@ static void prv_render_cell(GRect bounds, GContext *ctx, CellSize cell_size, cha
   }
   // draw body
   graphics_context_set_text_color(ctx, COLOR_FOREGROUND);
-  prv_render_rich_text(bounds, ctx, array_length, text, font);
+  prv_render_rich_text(bounds, ctx, array_length, rich_text);
 }
 
 
@@ -140,14 +144,17 @@ static void prv_cell_render_clock_time(GRect bounds, GContext *ctx, CellSize cel
       bounds.size.h -= 8;
     }
     // draw text
-    char *text_0[2] = { digit_buff, symbol_buff };
-    char *font_0[2] = { digit_font, symbol_font };
-    prv_render_cell(bounds, ctx, cell_size, "Clock", 2, text_0, font_0);
+    RichTextElement rich_text_1[] = {
+      {digit_buff,  digit_font},
+      {symbol_buff, symbol_font}
+    };
+    prv_render_cell(bounds, ctx, cell_size, "Clock", ARRAY_LENGTH(rich_text_1), rich_text_1);
     if (cell_size == CellSizeLarge) {
       bounds.origin.y += 21;
-      char *text_1[1] = { date_buff };
-      char *font_1[1] = { FONT_KEY_GOTHIC_18_BOLD };
-      prv_render_cell(bounds, ctx, cell_size, NULL, 1, text_1, font_1);
+      RichTextElement rich_text_2[] = {
+        {date_buff, FONT_KEY_GOTHIC_18_BOLD},
+      };
+      prv_render_cell(bounds, ctx, cell_size, NULL, ARRAY_LENGTH(rich_text_2), rich_text_2);
     }
   } else {
     // draw background
@@ -187,7 +194,7 @@ static void prv_cell_render_clock_time(GRect bounds, GContext *ctx, CellSize cel
       GOvalScaleModeFillCircle,
       (tm_time->tm_hour % 12 * MIN_IN_HR + tm_time->tm_min) * TRIG_MAX_ANGLE / (MIN_IN_DAY / 2));
     GPoint min_point = gpoint_from_polar(grect_inset(bounds,
-      GEdgeInsets1(CELL_CLOCK_MIN_HAND_INSET)), GOvalScaleModeFillCircle,
+        GEdgeInsets1(CELL_CLOCK_MIN_HAND_INSET)), GOvalScaleModeFillCircle,
       tm_time->tm_min * TRIG_MAX_ANGLE / MIN_IN_HR);
     // draw hands
     graphics_context_set_stroke_width(ctx, CELL_CLOCK_HAND_WIDTH);
@@ -213,9 +220,13 @@ static void prv_cell_render_run_time(GRect bounds, GContext *ctx, CellSize cell_
   char day_buff[4], hr_buff[3];
   snprintf(day_buff, sizeof(day_buff), "%d", days);
   snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
-  char *text_0[4] = { day_buff, "d ", hr_buff, "h" };
-  char *font_0[4] = { digit_font, symbol_font, digit_font, symbol_font };
-  prv_render_cell(main_bounds, ctx, cell_size, "Run Time", 4, text_0, font_0);
+  RichTextElement rich_text_1[] = {
+    {day_buff, digit_font},
+    {"d ",     symbol_font},
+    {hr_buff,  digit_font},
+    {"h",      symbol_font}
+  };
+  prv_render_cell(main_bounds, ctx, cell_size, "Run Time", ARRAY_LENGTH(rich_text_1), rich_text_1);
   // if in full-screen mode
   if (cell_size == CellSizeFullScreen) {
     // temp variables
@@ -223,24 +234,17 @@ static void prv_cell_render_run_time(GRect bounds, GContext *ctx, CellSize cell_
     int day, hour;
     char tmp_buff[16];
     // render average life
-    tmp_bounds = GRect(0, MENU_CELL_FULL_SCREEN_TOP_OFFSET,
-      bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);
-    int32_t sec_avg_life = data_get_max_life();
-    day = sec_avg_life / SEC_IN_DAY;
-    hour = sec_avg_life % SEC_IN_DAY / SEC_IN_HR;
-    snprintf(tmp_buff, sizeof(tmp_buff), "%dd %dh", day, hour);
-    char *text_1[1] = { tmp_buff };
-    char *font_1[1] = { FONT_KEY_GOTHIC_24_BOLD };
-    prv_render_cell(tmp_bounds, ctx, cell_size, "Avg Life", 1, text_1, font_1);
+    RichTextElement rich_text_2[] = {
+      {tmp_buff, FONT_KEY_GOTHIC_24_BOLD}
+    };
     // render last charged
     tmp_bounds = GRect(0, bounds.size.h - MENU_CELL_FULL_SCREEN_SUB_HEIGHT,
       bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);
     time_t lst_charge_epoch = data_get_last_charge_time();
     tm *lst_charge = localtime(&lst_charge_epoch);
     strftime(tmp_buff, sizeof(tmp_buff), "%A", lst_charge);
-    char *text_2[1] = { tmp_buff };
-    char *font_2[1] = { FONT_KEY_GOTHIC_24_BOLD };
-    prv_render_cell(tmp_bounds, ctx, cell_size, "Last Charged", 1, text_2, font_2);
+    prv_render_cell(tmp_bounds, ctx, cell_size, "Last Charged", ARRAY_LENGTH(rich_text_2),
+      rich_text_2);
   }
 }
 
@@ -256,9 +260,12 @@ static void prv_cell_render_percent(GRect bounds, GContext *ctx, CellSize cell_s
   // draw text
   GRect main_bounds = grect_inset(bounds,
     GEdgeInsets2((bounds.size.h - MENU_CELL_HEIGHT_TALL) / 2, 0));
-  char *text[3] = { "   ", buff, "%" };
-  char *font[3] = { symbol_font, digit_font, symbol_font };
-  prv_render_cell(main_bounds, ctx, cell_size, "Percent", 3, text, font);
+  RichTextElement rich_text_1[] = {
+    {"   ", symbol_font},
+    {buff,  digit_font},
+    {"%",   symbol_font}
+  };
+  prv_render_cell(main_bounds, ctx, cell_size, "Percent", ARRAY_LENGTH(rich_text_1), rich_text_1);
   // if in full-screen mode
   if (cell_size == CellSizeFullScreen) {
     // temp variables
@@ -267,10 +274,11 @@ static void prv_cell_render_percent(GRect bounds, GContext *ctx, CellSize cell_s
     // render percent per day
     tmp_bounds = GRect(0, MENU_CELL_FULL_SCREEN_TOP_OFFSET,
       bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);
-    snprintf(tmp_buff, sizeof(tmp_buff), "%d%% / day", (int)data_get_percent_per_day());
-    char *text_1[1] = { tmp_buff };
-    char *font_1[1] = { FONT_KEY_GOTHIC_24_BOLD };
-    prv_render_cell(tmp_bounds, ctx, cell_size, "Rate", 1, text_1, font_1);
+    snprintf(tmp_buff, sizeof(tmp_buff), "%d%% / day", (int) data_get_percent_per_day());
+    RichTextElement rich_text_2[] = {
+      {tmp_buff, FONT_KEY_GOTHIC_24_BOLD}
+    };
+    prv_render_cell(tmp_bounds, ctx, cell_size, "Rate", ARRAY_LENGTH(rich_text_2), rich_text_2);
   }
 }
 
@@ -289,9 +297,33 @@ static void prv_cell_render_time_remaining(GRect bounds, GContext *ctx, CellSize
   snprintf(day_buff, sizeof(day_buff), "%d", days);
   snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
   // draw text
-  char *text[4] = { day_buff, "d ", hr_buff, "h" };
-  char *font[4] = { digit_font, symbol_font, digit_font, symbol_font };
-  prv_render_cell(bounds, ctx, cell_size, "Remaining", 4, text, font);
+  GRect main_bounds = grect_inset(bounds,
+    GEdgeInsets2((bounds.size.h - MENU_CELL_HEIGHT_TALL) / 2, 0));
+  RichTextElement rich_text[] = {
+    { day_buff, digit_font },
+    { "d ", symbol_font },
+    { hr_buff, digit_font },
+    { "h", symbol_font }
+  };
+  prv_render_cell(main_bounds, ctx, cell_size, "Remaining", ARRAY_LENGTH(rich_text), rich_text);
+  // if in full-screen mode
+  if (cell_size == CellSizeFullScreen) {
+    // temp variables
+    GRect tmp_bounds;
+    int day, hour;
+    char tmp_buff[16];
+    // render average life
+    tmp_bounds = GRect(0, MENU_CELL_FULL_SCREEN_TOP_OFFSET,
+      bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);
+    int32_t sec_avg_life = data_get_max_life();
+    day = sec_avg_life / SEC_IN_DAY;
+    hour = sec_avg_life % SEC_IN_DAY / SEC_IN_HR;
+    snprintf(tmp_buff, sizeof(tmp_buff), "%dd %02dh", day, hour);
+    RichTextElement rich_text_2[] = {
+      {tmp_buff, FONT_KEY_GOTHIC_24_BOLD}
+    };
+    prv_render_cell(tmp_bounds, ctx, cell_size, "Avg Life", ARRAY_LENGTH(rich_text_2), rich_text_2);
+  }
 }
 
 
