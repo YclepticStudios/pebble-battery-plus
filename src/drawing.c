@@ -135,7 +135,7 @@ static void prv_cell_render_clock_time(GRect bounds, GContext *ctx, CellSize cel
     char *digit_font = (cell_size == CellSizeSmall) ?
       FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM : FONT_KEY_LECO_32_BOLD_NUMBERS;
     // get text
-    char digit_buff[8], symbol_buff[3], date_buff[16];
+    char digit_buff[7], symbol_buff[3], date_buff[16];
     strftime(digit_buff, sizeof(digit_buff), " %l:%M", tm_time);
     strftime(symbol_buff, sizeof(symbol_buff), "%p", tm_time);
     strftime(date_buff, sizeof(date_buff), "%a, %b %e", tm_time);
