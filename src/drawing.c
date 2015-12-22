@@ -210,7 +210,7 @@ static void prv_cell_render_clock_time(GRect bounds, GContext *ctx, CellSize cel
     graphics_context_set_stroke_width(ctx, CELL_CLOCK_HAND_WIDTH);
     graphics_context_set_stroke_color(ctx, GColorWhite);
     graphics_draw_line(ctx, grect_center_point(&bounds), min_point);
-    graphics_context_set_stroke_color(ctx, GColorRed);
+    graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorRed, GColorWhite));
     graphics_draw_line(ctx, grect_center_point(&bounds), hr_point);
   }
 }
@@ -437,6 +437,14 @@ static void prv_cell_render_graph(GRect bounds, GContext *ctx, CellSize cell_siz
   }
 }
 
+// Render time remaining cell
+static void prv_cell_render_settings(GRect bounds, GContext *ctx, CellSize cell_size) {
+  RichTextElement rich_text[] = {
+    {"...", FONT_KEY_GOTHIC_28_BOLD}
+  };
+  prv_render_cell(bounds, ctx, cell_size, "Settings", ARRAY_LENGTH(rich_text), rich_text);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Private Functions
@@ -496,6 +504,9 @@ static void prv_animation_refresh_handler(void) {
 
 // Render a MenuLayer cell
 void drawing_render_cell(MenuLayer *menu, Layer *layer, GContext *ctx, MenuIndex index) {
+  // check if background cell
+  if (menu_cell_layer_is_highlighted(layer) &&
+      menu_layer_get_selected_index(menu).row != index.row) { return; }
   // get cell parameters
   GRect bounds = layer_get_bounds(layer);
   // fill with white background on aplite
@@ -528,6 +539,9 @@ void drawing_render_cell(MenuLayer *menu, Layer *layer, GContext *ctx, MenuIndex
       break;
     case 4:
       prv_cell_render_graph(bounds, ctx, cell_size);
+      break;
+    case 5:
+      prv_cell_render_settings(bounds, ctx, cell_size);
       break;
     default:
 //      menu_cell_basic_draw(ctx, layer, "<empty>", NULL, NULL);

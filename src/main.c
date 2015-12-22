@@ -15,7 +15,7 @@
 
 // Main constants
 #define DATA_LOAD_NUM_DAYS 7
-#define MENU_CELL_COUNT 5
+#define MENU_CELL_COUNT 6
 #define MENU_CELL_HEIGHT_TALL 65
 #define MENU_CELL_ANIMATION_BOUNCE_HEIGHT 20
 #define MENU_CELL_ANIMATION_SLIDE_DURATION_MS 50
@@ -100,7 +100,7 @@ static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
 //
 
 // Initialize menu layer
-void prv_initialize_menu_layer(Layer *window_root, GRect window_bounds) {
+static void prv_initialize_menu_layer(Layer *window_root, GRect window_bounds) {
   main_data.menu_cell_height = MENU_CELL_HEIGHT_TALL;
   main_data.menu = menu_layer_create(grect_inset(window_bounds, GEdgeInsets1(RING_WIDTH)));
   ASSERT(main_data.menu);
@@ -119,7 +119,7 @@ void prv_initialize_menu_layer(Layer *window_root, GRect window_bounds) {
 }
 
 // Initialize the program
-static void prv_initialize(void) {
+void prv_initialize(void) {
   // start background worker
   app_worker_launch();
   // load data
