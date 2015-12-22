@@ -307,10 +307,10 @@ static void prv_cell_render_time_remaining(GRect bounds, GContext *ctx, CellSize
   GRect main_bounds = grect_inset(bounds,
     GEdgeInsets2((bounds.size.h - MENU_CELL_HEIGHT_TALL) / 2, 0));
   RichTextElement rich_text[] = {
-    { day_buff, digit_font },
-    { "d ", symbol_font },
-    { hr_buff, digit_font },
-    { "h", symbol_font }
+    {day_buff, digit_font},
+    {"d ",     symbol_font},
+    {hr_buff,  digit_font},
+    {"h",      symbol_font}
   };
   prv_render_cell(main_bounds, ctx, cell_size, "Remaining", ARRAY_LENGTH(rich_text), rich_text);
   // if in full-screen mode
@@ -330,6 +330,14 @@ static void prv_cell_render_time_remaining(GRect bounds, GContext *ctx, CellSize
       {tmp_buff, FONT_KEY_GOTHIC_24_BOLD}
     };
     prv_render_cell(tmp_bounds, ctx, cell_size, "Avg Life", ARRAY_LENGTH(rich_text_2), rich_text_2);
+    // render charge by
+    tmp_bounds = GRect(0, bounds.size.h - MENU_CELL_FULL_SCREEN_SUB_HEIGHT,
+      bounds.size.w, MENU_CELL_FULL_SCREEN_SUB_HEIGHT);
+    time_t charge_by_epoch = data_get_charge_by_time();
+    tm *charge_by = localtime(&charge_by_epoch);
+    strftime(tmp_buff, sizeof(tmp_buff), "%a %k:%M", charge_by);
+    prv_render_cell(tmp_bounds, ctx, cell_size, "Charge By", ARRAY_LENGTH(rich_text_2),
+      rich_text_2);
   }
 }
 

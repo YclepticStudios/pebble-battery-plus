@@ -15,6 +15,10 @@
 // API Implementation
 //
 
+//! Get the time the watch needs to be charged by
+//! @return The time the watch needs to be charged as a UTC epoch
+int32_t data_get_charge_by_time(void);
+
 //! Get the estimated time remaining in seconds
 //! @return The number of seconds of battery life remaining
 int32_t data_get_life_remaining(void);

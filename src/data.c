@@ -78,6 +78,14 @@ static void prv_list_add_node_end(DataNode *node) {
 // API Implementation
 //
 
+// Get the time the watch needs to be charged by
+int32_t data_get_charge_by_time(void) {
+  // get latest node
+  DataNode tmp_node = prv_get_latest_node();
+  // calculate end time
+  return tmp_node.epoch + tmp_node.percent * (-prv_charge_rate);
+}
+
 // Get the estimated time remaining in seconds
 int32_t data_get_life_remaining(void) {
   // get latest node
