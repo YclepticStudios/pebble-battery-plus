@@ -29,6 +29,7 @@ typedef struct DataNode {
 
 // Main variables
 static DataNode *head_node = NULL; // Newest at start
+static uint16_t prv_node_count = 0; // Total number of nodes currently loaded in memory
 static int32_t prv_charge_rate, prv_last_charged, prv_record_life;
 
 
@@ -58,12 +59,14 @@ static DataNode prv_get_latest_node(void) {
 static void prv_list_add_node_start(DataNode *node) {
   node->next = head_node;
   head_node = node;
+  prv_node_count++;
 }
 
 // Add node to end of linked list
 static void prv_list_add_node_end(DataNode *node) {
   if (!head_node) {
     head_node = node;
+    prv_node_count++;
     return;
   }
   DataNode *cur_node = head_node;
@@ -71,6 +74,7 @@ static void prv_list_add_node_end(DataNode *node) {
     cur_node = cur_node->next;
   }
   cur_node->next = node;
+  prv_node_count++;
 }
 
 
@@ -148,6 +152,29 @@ int32_t data_get_charge_rate(void) {
   return prv_charge_rate;
 }
 
+// Get the current number of data points loaded in RAM
+uint16_t data_get_battery_data_point_count(void) {
+  return prv_node_count;
+}
+
+// Get data points by index with 0 being the latest point
+bool data_get_battery_data_point(uint16_t index, int32_t *epoch, uint8_t *percent) {
+  DataNode *cur_node = head_node;
+  uint16_t ii = 0;
+  while (cur_node) {
+    // check if node
+    if (index == ii) {
+      (*epoch) = cur_node->epoch;
+      (*percent) = cur_node->percent;
+      return true;
+    }
+    // index node
+    ii++;
+    cur_node = cur_node->next;
+  }
+  return false;
+}
+
 // Load the past X days of data
 void data_load_past_days(uint8_t num_days) {
   if (!persist_exists(DATA_PERSIST_KEY)) {
@@ -195,6 +222,7 @@ void data_unload(void) {
     free(tmp_node);
   }
   head_node = NULL;
+  prv_node_count = 0;
 }
 
 // Print the data to the console

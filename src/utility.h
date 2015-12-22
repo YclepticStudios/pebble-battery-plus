@@ -13,9 +13,10 @@
 #include <pebble.h>
 
 // Time Constants
-#define SEC_IN_DAY 86400
-#define SEC_IN_HR 3600
 #define SEC_IN_MIN 60
+#define SEC_IN_HR 3600
+#define SEC_IN_DAY 86400
+#define SEC_IN_WEEK 604800
 #define MIN_IN_HR 60
 #define MIN_IN_DAY 1440
 #define DAY_IN_YEAR 365

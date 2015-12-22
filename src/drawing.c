@@ -25,6 +25,7 @@
 #define COLOR_RING_NORM GColorGreen
 #define CENTER_STROKE_WIDTH PBL_IF_ROUND_ELSE(5, 4)
 #define TEXT_TOP_BORDER_FRACTION 3 / 25
+#define APLITE_SELECTION_BORDER 3
 #define ANI_DURATION 300
 #define STARTUP_ANI_DELAY 550
 // Clock cell constants
@@ -33,6 +34,15 @@
 #define CELL_CLOCK_HR_HAND_INSET 37
 #define CELL_CLOCK_MIN_HAND_INSET 23
 #define CELL_CLOCK_HAND_WIDTH 7
+// Graph cell constants
+#define CELL_GRAPH_HEIGHT_FULLSCREEN_TOP_INSET 30
+#define CELL_GRAPH_HEIGHT_FULLSCREEN_BOT_INSET 50
+#define CELL_GRAPH_HEIGHT_INSET 10
+#define CELL_GRAPH_WIDTH_INSET 6
+#define CELL_GRAPH_X_RANGE SEC_IN_WEEK
+#define CELL_GRAPH_Y_RANGE 100
+#define CELL_GRAPH_STROKE_WIDTH 2
+#define CELL_GRAPH_AXIS_HEIGHT 20
 
 
 // Drawing variables
@@ -131,7 +141,7 @@ static void prv_cell_render_clock_time(GRect bounds, GContext *ctx, CellSize cel
   // check draw mode
   if (cell_size != CellSizeFullScreen) {
     // get fonts
-    char *symbol_font = FONT_KEY_GOTHIC_14_BOLD;
+    char *symbol_font = FONT_KEY_GOTHIC_09;
     char *digit_font = (cell_size == CellSizeSmall) ?
       FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM : FONT_KEY_LECO_32_BOLD_NUMBERS;
     // get text
@@ -341,6 +351,92 @@ static void prv_cell_render_time_remaining(GRect bounds, GContext *ctx, CellSize
   }
 }
 
+// Render graph cell
+static void prv_cell_render_graph(GRect bounds, GContext *ctx, CellSize cell_size) {
+  // prep draw
+  GRect graph_bounds = grect_inset(bounds,
+    GEdgeInsets3((cell_size == CellSizeFullScreen) ?
+      CELL_GRAPH_HEIGHT_FULLSCREEN_TOP_INSET : CELL_GRAPH_HEIGHT_INSET,
+      CELL_GRAPH_WIDTH_INSET, (cell_size == CellSizeFullScreen) ?
+      CELL_GRAPH_HEIGHT_FULLSCREEN_BOT_INSET : CELL_GRAPH_HEIGHT_INSET));
+  // draw graph
+  uint16_t index = 0;
+  int32_t node_epoch;
+  uint8_t node_percent;
+  int32_t cur_epoch = time(NULL);
+  GPoint data_points[data_get_battery_data_point_count() + 2];
+  while (data_get_battery_data_point(index, &node_epoch, &node_percent)) {
+    // calculate screen location
+    data_points[index].x = graph_bounds.origin.x + graph_bounds.size.w -
+      graph_bounds.size.w * (cur_epoch - node_epoch) / CELL_GRAPH_X_RANGE;
+    data_points[index].y = graph_bounds.origin.y + graph_bounds.size.h -
+      graph_bounds.size.h * node_percent / CELL_GRAPH_Y_RANGE;
+    index++;
+  }
+  // add two last points along bottom of data to fill data
+  data_points[index] = GPoint(data_points[index - 1].x,
+    graph_bounds.origin.y + graph_bounds.size.h);
+  data_points[index + 1] = GPoint(data_points[0].x,
+    graph_bounds.origin.y + graph_bounds.size.h);
+  // draw graph fill
+  GPathInfo path_info = { .num_points = ARRAY_LENGTH(data_points), .points = data_points };
+  GPath *path = gpath_create(&path_info);
+  graphics_context_set_fill_color(ctx, GColorGreen);
+  gpath_draw_filled(ctx, path);
+  gpath_destroy(path);
+  // draw graph stroke
+  path_info.num_points -= 2;
+  path = gpath_create(&path_info);
+  graphics_context_set_stroke_width(ctx, CELL_GRAPH_STROKE_WIDTH);
+  graphics_context_set_stroke_color(ctx, GColorBlack);
+  gpath_draw_outline_open(ctx, path);
+  gpath_destroy(path);
+  // render header
+  if (cell_size != CellSizeSmall) {
+    graphics_context_set_text_color(ctx, GColorBulgarianRose);
+    prv_render_header_text(bounds, ctx, "Graph");
+  }
+  // if in full-screen mode
+  if (cell_size == CellSizeFullScreen) {
+    // get bounds
+    GRect axis_bounds = GRect(0, graph_bounds.origin.y + graph_bounds.size.h,
+      bounds.size.w, CELL_GRAPH_AXIS_HEIGHT);
+    // draw background
+    graphics_context_set_fill_color(ctx, GColorWhite);
+    graphics_fill_rect(ctx, axis_bounds, 0, GCornerNone);
+    graphics_draw_line(ctx, GPoint(axis_bounds.origin.x, axis_bounds.origin.y),
+      GPoint(axis_bounds.origin.x + axis_bounds.size.w, axis_bounds.origin.y));
+    graphics_draw_line(ctx, GPoint(axis_bounds.origin.x, axis_bounds.origin.y + axis_bounds.size.h),
+      GPoint(axis_bounds.origin.x + axis_bounds.size.w, axis_bounds.origin.y + axis_bounds.size.h));
+    // draw days of the week
+    graphics_context_set_text_color(ctx, GColorBlack);
+    time_t t_time = time(NULL);
+    tm *tm_time = localtime(&t_time);
+    time_t l_time = t_time + tm_time->tm_gmtoff;
+    char dow_list_buff[] = "SMTWTFS";
+    char dow_buff[] = "S";
+    int8_t day_of_week = tm_time->tm_wday;
+    GRect txt_bounds = axis_bounds;
+    txt_bounds.origin.y -= 2;
+    txt_bounds.size.w = graph_bounds.size.w * SEC_IN_DAY / CELL_GRAPH_X_RANGE;
+    uint8_t ii = 0;
+    do {
+      // calculate x offset
+      txt_bounds.origin.x = graph_bounds.origin.x + graph_bounds.size.w -
+        ((l_time % SEC_IN_DAY + ii * SEC_IN_DAY) * graph_bounds.size.w / CELL_GRAPH_X_RANGE);
+      // draw text
+      dow_buff[0] = dow_list_buff[day_of_week];
+      graphics_draw_text(ctx, dow_buff, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), txt_bounds,
+        GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+      // index
+      ii++;
+      if (--day_of_week < 0) {
+        day_of_week = 6;
+      }
+    } while (txt_bounds.origin.x + txt_bounds.size.w > 0);
+  }
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Private Functions
@@ -402,6 +498,12 @@ static void prv_animation_refresh_handler(void) {
 void drawing_render_cell(MenuLayer *menu, Layer *layer, GContext *ctx, MenuIndex index) {
   // get cell parameters
   GRect bounds = layer_get_bounds(layer);
+  // fill with white background on aplite
+#ifdef PBL_BW
+  graphics_context_set_fill_color(ctx, GColorWhite);
+  graphics_fill_rect(ctx, grect_inset(bounds, GEdgeInsets2(APLITE_SELECTION_BORDER, 0)), 0,
+    GCornerNone);
+#endif
   CellSize cell_size;
   if (bounds.size.h > MENU_CELL_HEIGHT_TALL) {
     cell_size = CellSizeFullScreen;
@@ -423,6 +525,9 @@ void drawing_render_cell(MenuLayer *menu, Layer *layer, GContext *ctx, MenuIndex
       break;
     case 3:
       prv_cell_render_time_remaining(bounds, ctx, cell_size);
+      break;
+    case 4:
+      prv_cell_render_graph(bounds, ctx, cell_size);
       break;
     default:
 //      menu_cell_basic_draw(ctx, layer, "<empty>", NULL, NULL);

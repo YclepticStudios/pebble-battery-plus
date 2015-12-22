@@ -51,6 +51,17 @@ int32_t data_get_max_life(void);
 //! @return The current charge rate
 int32_t data_get_charge_rate(void);
 
+//! Get the current number of data points loaded in RAM
+//! @return The number of data points in RAM
+uint16_t data_get_battery_data_point_count(void);
+
+//! Get data points by index with 0 being the latest point
+//! @param index The index of the point to retrieve
+//! @param epoch A pointer to an int32_t to which to set the epoch
+//! @param percent A pointer to a uint8_t to which to set the battery percent
+//! @return True if a point exists else false if outside data bounds
+bool data_get_battery_data_point(uint16_t index, int32_t *epoch, uint8_t *percent);
+
 //! Load the past X days of data
 //! @param num_days The number of days of data to load
 void data_load_past_days(uint8_t num_days);
