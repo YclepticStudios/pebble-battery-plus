@@ -8,25 +8,16 @@
 // @bugs No known bugs
 
 #include <pebble.h>
-#include "animation/animation.h"
 #include "data.h"
-#include "drawing.h"
+#include "drawing/drawing.h"
 #include "utility.h"
 
 // Main constants
 #define DATA_LOAD_NUM_DAYS 7
-#define MENU_CELL_COUNT 6
-#define MENU_CELL_HEIGHT_TALL 65
-#define MENU_CELL_ANIMATION_BOUNCE_HEIGHT 20
-#define MENU_CELL_ANIMATION_SLIDE_DURATION_MS 50
-#define MENU_CELL_ANIMATION_BOUNCE_DURATION_MS 40
 
 // Main data structure
 static struct {
   Window      *window;            //< The base window for the application
-  MenuLayer   *menu;              //< The main menu layer for the application
-  Layer       *layer;             //< The drawing layer for the progress ring
-  int32_t     menu_cell_height;   //< The height of the selected MenuLayer cell
 } main_data;
 
 
@@ -34,63 +25,31 @@ static struct {
 // Callbacks
 //
 
-// Layer update procedure
-static void prv_layer_update_proc_handler(Layer *layer, GContext *ctx) {
-  drawing_render(layer, ctx);
+// Up click handler
+void up_single_click_handler(ClickRecognizerRef recognizer, void *context) {
+  drawing_select_next_card(true);
 }
 
-// MenuLayer row draw callback
-static void prv_menu_row_draw_handler(GContext *ctx, const Layer *layer, MenuIndex *index,
-                                      void *context) {
-  drawing_render_cell(main_data.menu, (Layer*)layer, ctx, *index);
+// Select click handler
+void select_single_click_handler(ClickRecognizerRef recognizer, void *context) {
+
 }
 
-// MenuLayer get row count callback
-static uint16_t prv_menu_get_row_count_handler(MenuLayer *menu, uint16_t index, void *context) {
-  return MENU_CELL_COUNT;
+// Down click handler
+void down_single_click_handler(ClickRecognizerRef recognizer, void *context) {
+  drawing_select_next_card(false);
 }
 
-// MenuLayer get row height callback
-static int16_t prv_menu_get_row_height_handler(MenuLayer *menu, MenuIndex *index, void *context) {
-  if (index->row == MENU_CELL_COUNT - 1) {
-    return MENU_CELL_HEIGHT_TALL;
-  } else if (menu_layer_get_selected_index(main_data.menu).row == index->row) {
-    return main_data.menu_cell_height;
-  }
-  GRect menu_bounds = layer_get_bounds(menu_layer_get_layer(menu));
-  return (menu_bounds.size.h - MENU_CELL_HEIGHT_TALL) / 2;
-}
-
-// MenuLayer select click callback
-static void prv_menu_select_click_handler(MenuLayer *menu, MenuIndex *index, void *context) {
-  // if on settings cell
-  if (index->row == MENU_CELL_COUNT - 1) {
-    printf("Clicked");
-  } else {
-    // check animation state
-    GRect menu_bounds = layer_get_bounds(menu_layer_get_layer(menu));
-    if (main_data.menu_cell_height > MENU_CELL_HEIGHT_TALL + (menu_bounds.size.h -
-          MENU_CELL_HEIGHT_TALL) / 2) {
-      animation_int32_start(&main_data.menu_cell_height, MENU_CELL_HEIGHT_TALL -
-        MENU_CELL_ANIMATION_BOUNCE_HEIGHT, MENU_CELL_ANIMATION_SLIDE_DURATION_MS, 0, CurveLinear);
-      animation_int32_start(&main_data.menu_cell_height, MENU_CELL_HEIGHT_TALL,
-        MENU_CELL_ANIMATION_BOUNCE_DURATION_MS, MENU_CELL_ANIMATION_SLIDE_DURATION_MS,
-        CurveSinEaseOut);
-    } else {
-      animation_int32_start(&main_data.menu_cell_height, MENU_CELL_HEIGHT_TALL -
-        MENU_CELL_ANIMATION_BOUNCE_HEIGHT, MENU_CELL_ANIMATION_BOUNCE_DURATION_MS, 0,
-        CurveSinEaseOut);
-      animation_int32_start(&main_data.menu_cell_height, menu_bounds.size.h,
-        MENU_CELL_ANIMATION_SLIDE_DURATION_MS, MENU_CELL_ANIMATION_BOUNCE_DURATION_MS, CurveLinear);
-    }
-  }
+// Click configuration callback
+static void prv_click_config_handler(void *context) {
+  window_single_click_subscribe(BUTTON_ID_UP, up_single_click_handler);
+  window_single_click_subscribe(BUTTON_ID_SELECT, select_single_click_handler);
+  window_single_click_subscribe(BUTTON_ID_DOWN, down_single_click_handler);
 }
 
 // Tick Timer service for updating every minute
 static void prv_tick_timer_service_handler(tm *tick_time, TimeUnits units_changed) {
-  drawing_recalculate_progress_rings();
-  menu_layer_reload_data(main_data.menu);
-  layer_mark_dirty(main_data.layer);
+  // TODO: Refresh Everything
 }
 
 // Worker message callback
@@ -106,25 +65,6 @@ static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
 // Loading and Unloading
 //
 
-// Initialize menu layer
-static void prv_initialize_menu_layer(Layer *window_root, GRect window_bounds) {
-  main_data.menu_cell_height = MENU_CELL_HEIGHT_TALL;
-  main_data.menu = menu_layer_create(grect_inset(window_bounds, GEdgeInsets1(RING_WIDTH)));
-  ASSERT(main_data.menu);
-  menu_layer_set_highlight_colors(main_data.menu, COLOR_MENU_BACKGROUND, GColorBlack);
-  menu_layer_set_center_focused(main_data.menu, true);
-  menu_layer_set_callbacks(main_data.menu, NULL, (MenuLayerCallbacks) {
-    .draw_row = prv_menu_row_draw_handler,
-    .get_num_rows = prv_menu_get_row_count_handler,
-    .get_cell_height = prv_menu_get_row_height_handler,
-    .select_click = prv_menu_select_click_handler,
-  });
-  menu_layer_set_click_config_onto_window(main_data.menu, main_data.window);
-  menu_layer_set_selected_index(main_data.menu, (MenuIndex) { .row = 2, .section = 0 },
-    MenuRowAlignCenter, false);
-  layer_add_child(window_root, menu_layer_get_layer(main_data.menu));
-}
-
 // Initialize the program
 void prv_initialize(void) {
   // start background worker
@@ -135,23 +75,10 @@ void prv_initialize(void) {
   main_data.window = window_create();
   ASSERT(main_data.window);
   Layer *window_root = window_get_root_layer(main_data.window);
-  GRect window_bounds = layer_get_bounds(window_root);
+  window_set_click_config_provider(main_data.window, prv_click_config_handler);
   window_stack_push(main_data.window, true);
-#ifdef PBL_ROUND
-  // initialize menu layer before ring layer if round pebble
-  prv_initialize_menu_layer(window_root, window_bounds);
-#endif
-  // initialize tile layer
-  main_data.layer = layer_create(window_bounds);
-  ASSERT(main_data.layer);
-  layer_set_update_proc(main_data.layer, prv_layer_update_proc_handler);
-  layer_add_child(window_root, main_data.layer);
-#ifndef PBL_ROUND
-  // initialize menu layer after ring layer if rectangular pebble
-  prv_initialize_menu_layer(window_root, window_bounds);
-#endif
-  // initialize drawing
-  drawing_initialize(main_data.layer, main_data.menu);
+  // initialize drawing layers
+  drawing_initialize(window_root);
   // subscribe to services
   app_worker_message_subscribe(prv_worker_message_handler);
   tick_timer_service_subscribe(MINUTE_UNIT, prv_tick_timer_service_handler);
@@ -163,8 +90,7 @@ static void prv_terminate(void) {
   app_worker_message_unsubscribe();
   tick_timer_service_unsubscribe();
   // destroy
-  layer_destroy(main_data.layer);
-  menu_layer_destroy(main_data.menu);
+  drawing_terminate();
   window_destroy(main_data.window);
   // unload data
   data_unload();

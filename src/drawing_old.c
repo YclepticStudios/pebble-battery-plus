@@ -7,7 +7,7 @@
 // @date November 28, 2015
 // @bugs No known bugs
 
-#include "drawing.h"
+#include "drawing_old.h"
 #include "animation/animation.h"
 #include "data.h"
 #include "utility.h"
@@ -584,15 +584,15 @@ void drawing_recalculate_progress_rings(void) {
   }
 }
 
-// Initialize drawing variables
-void drawing_initialize(Layer *layer, MenuLayer *menu) {
-  // register animation callback
-  animation_register_update_callback(prv_animation_refresh_handler);
-  // store layer pointer
-  drawing_data.layer = layer;
-  drawing_data.menu = menu;
-  // set initial progress ring angles
-  drawing_data.ring_low_angle = drawing_data.ring_med_angle = drawing_data.ring_level_angle = 0;
-  // animate to new positions
-  drawing_recalculate_progress_rings();
-}
+//// Initialize drawing variables
+//void drawing_initialize(Layer *layer, MenuLayer *menu) {
+//  // register animation callback
+//  animation_register_update_callback(prv_animation_refresh_handler);
+//  // store layer pointer
+//  drawing_data.layer = layer;
+//  drawing_data.menu = menu;
+//  // set initial progress ring angles
+//  drawing_data.ring_low_angle = drawing_data.ring_med_angle = drawing_data.ring_level_angle = 0;
+//  // animate to new positions
+//  drawing_recalculate_progress_rings();
+//}

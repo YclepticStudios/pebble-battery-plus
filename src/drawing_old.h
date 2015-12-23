@@ -37,7 +37,7 @@ void drawing_render(Layer *layer, GContext *ctx);
 //! Recalculate and animate the position the progress ring
 void drawing_recalculate_progress_rings(void);
 
-//! Initialize drawing variables
-//! @param layer Pointer to layer onto which everything is drawn
-//! @param menu Pointer to menu which contains information
-void drawing_initialize(Layer *layer, MenuLayer *menu);
+////! Initialize drawing variables
+////! @param layer Pointer to layer onto which everything is drawn
+////! @param menu Pointer to menu which contains information
+//void drawing_initialize(Layer *layer, MenuLayer *menu);
