@@ -52,7 +52,9 @@ static uint16_t prv_menu_get_row_count_handler(MenuLayer *menu, uint16_t index, 
 
 // MenuLayer get row height callback
 static int16_t prv_menu_get_row_height_handler(MenuLayer *menu, MenuIndex *index, void *context) {
-  if (menu_layer_get_selected_index(main_data.menu).row == index->row) {
+  if (index->row == MENU_CELL_COUNT - 1) {
+    return MENU_CELL_HEIGHT_TALL;
+  } else if (menu_layer_get_selected_index(main_data.menu).row == index->row) {
     return main_data.menu_cell_height;
   }
   GRect menu_bounds = layer_get_bounds(menu_layer_get_layer(menu));
@@ -61,21 +63,26 @@ static int16_t prv_menu_get_row_height_handler(MenuLayer *menu, MenuIndex *index
 
 // MenuLayer select click callback
 static void prv_menu_select_click_handler(MenuLayer *menu, MenuIndex *index, void *context) {
-  // check animation state
-  GRect menu_bounds = layer_get_bounds(menu_layer_get_layer(menu));
-  if (main_data.menu_cell_height > MENU_CELL_HEIGHT_TALL + (menu_bounds.size.h -
-      MENU_CELL_HEIGHT_TALL) / 2) {
-    animation_int32_start(&main_data.menu_cell_height, MENU_CELL_HEIGHT_TALL -
-      MENU_CELL_ANIMATION_BOUNCE_HEIGHT, MENU_CELL_ANIMATION_SLIDE_DURATION_MS, 0, CurveLinear);
-    animation_int32_start(&main_data.menu_cell_height, MENU_CELL_HEIGHT_TALL,
-      MENU_CELL_ANIMATION_BOUNCE_DURATION_MS, MENU_CELL_ANIMATION_SLIDE_DURATION_MS,
-      CurveSinEaseOut);
+  // if on settings cell
+  if (index->row == MENU_CELL_COUNT - 1) {
+    printf("Clicked");
   } else {
-    animation_int32_start(&main_data.menu_cell_height, MENU_CELL_HEIGHT_TALL -
-      MENU_CELL_ANIMATION_BOUNCE_HEIGHT, MENU_CELL_ANIMATION_BOUNCE_DURATION_MS, 0,
-      CurveSinEaseOut);
-    animation_int32_start(&main_data.menu_cell_height, menu_bounds.size.h,
-      MENU_CELL_ANIMATION_SLIDE_DURATION_MS, MENU_CELL_ANIMATION_BOUNCE_DURATION_MS, CurveLinear);
+    // check animation state
+    GRect menu_bounds = layer_get_bounds(menu_layer_get_layer(menu));
+    if (main_data.menu_cell_height > MENU_CELL_HEIGHT_TALL + (menu_bounds.size.h -
+          MENU_CELL_HEIGHT_TALL) / 2) {
+      animation_int32_start(&main_data.menu_cell_height, MENU_CELL_HEIGHT_TALL -
+        MENU_CELL_ANIMATION_BOUNCE_HEIGHT, MENU_CELL_ANIMATION_SLIDE_DURATION_MS, 0, CurveLinear);
+      animation_int32_start(&main_data.menu_cell_height, MENU_CELL_HEIGHT_TALL,
+        MENU_CELL_ANIMATION_BOUNCE_DURATION_MS, MENU_CELL_ANIMATION_SLIDE_DURATION_MS,
+        CurveSinEaseOut);
+    } else {
+      animation_int32_start(&main_data.menu_cell_height, MENU_CELL_HEIGHT_TALL -
+        MENU_CELL_ANIMATION_BOUNCE_HEIGHT, MENU_CELL_ANIMATION_BOUNCE_DURATION_MS, 0,
+        CurveSinEaseOut);
+      animation_int32_start(&main_data.menu_cell_height, menu_bounds.size.h,
+        MENU_CELL_ANIMATION_SLIDE_DURATION_MS, MENU_CELL_ANIMATION_BOUNCE_DURATION_MS, CurveLinear);
+    }
   }
 }
 
