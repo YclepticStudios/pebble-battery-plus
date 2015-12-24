@@ -81,9 +81,9 @@ void drawing_initialize(Layer *window_layer) {
   drawing_data.scroll_offset = drawing_data.scroll_offset_ani = 0;
   drawing_data.card_layer[0] = card_initialize(drawing_data.window_bounds,
     CARD_BACK_COLOR_BAR_GRAPH, card_render_bar_graph);
-  drawing_data.card_layer[1] = card_initialize(drawing_data.window_bounds,
-    CARD_BACK_COLOR_DASHBOARD, card_render_dashboard);
   drawing_data.card_layer[2] = card_initialize(drawing_data.window_bounds,
+    CARD_BACK_COLOR_DASHBOARD, card_render_dashboard);
+  drawing_data.card_layer[1] = card_initialize(drawing_data.window_bounds,
     CARD_BACK_COLOR_LINE_GRAPH, card_render_line_graph);
   prv_position_cards();
   // add to window
