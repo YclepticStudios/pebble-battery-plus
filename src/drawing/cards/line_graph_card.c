@@ -13,6 +13,7 @@
 #include "../../utility.h"
 
 // Drawing Constants
+#define TEXT_BORDER_TOP PBL_IF_RECT_ELSE(3, 10)
 #define GRAPH_STROKE_WIDTH 2
 #define GRAPH_TOP_INSET PBL_IF_RECT_ELSE(40, 45)
 #define GRAPH_BOTTOM_INSET PBL_IF_RECT_ELSE(30, 35)
@@ -25,6 +26,14 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Private Functions
 //
+
+// Render text
+static void prv_render_text(GContext *ctx, GRect bounds) {
+  bounds.origin.y += TEXT_BORDER_TOP;
+  graphics_context_set_text_color(ctx, GColorBlack);
+  graphics_draw_text(ctx, "Percent", fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), bounds,
+    GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+}
 
 // Render line and fill
 static void prv_render_line(GContext *ctx, GRect bounds) {
@@ -125,4 +134,6 @@ void card_render_line_graph(Layer *layer, GContext *ctx, uint16_t click_count) {
   prv_render_line(ctx, bounds);
   // render graph axis with days of the week
   prv_render_axis(ctx, bounds);
+  // render text
+  prv_render_text(ctx, bounds);
 }
