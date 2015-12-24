@@ -14,7 +14,8 @@
 
 // Drawing Constants
 #define GRAPH_STROKE_WIDTH 2
-#define GRAPH_VERTICAL_INSET PBL_IF_RECT_ELSE(30, 35)
+#define GRAPH_TOP_INSET PBL_IF_RECT_ELSE(40, 45)
+#define GRAPH_BOTTOM_INSET PBL_IF_RECT_ELSE(30, 35)
 #define GRAPH_HORIZONTAL_INSET PBL_IF_RECT_ELSE(0, 18)
 #define GRAPH_AXIS_HEIGHT 20
 #define GRAPH_X_RANGE SEC_IN_WEEK
@@ -28,8 +29,8 @@
 // Render line and fill
 static void prv_render_line(GRect bounds, GContext *ctx) {
   // prep draw
-  GRect graph_bounds = GRect(GRAPH_HORIZONTAL_INSET, GRAPH_VERTICAL_INSET,
-    bounds.size.w - GRAPH_HORIZONTAL_INSET * 2, bounds.size.h - GRAPH_VERTICAL_INSET * 2);
+  GRect graph_bounds = GRect(GRAPH_HORIZONTAL_INSET, GRAPH_TOP_INSET, bounds.size.w -
+    GRAPH_HORIZONTAL_INSET * 2, bounds.size.h - GRAPH_TOP_INSET - GRAPH_BOTTOM_INSET);
   // draw graph
   uint16_t index = 0;
   int32_t node_epoch;
@@ -69,7 +70,7 @@ static void prv_render_line(GRect bounds, GContext *ctx) {
 static void prv_render_axis(GRect bounds, GContext *ctx) {
   // reshape bounds
   GRect axis_bounds = bounds;
-  axis_bounds.origin.y = axis_bounds.size.h - GRAPH_VERTICAL_INSET - GRAPH_AXIS_HEIGHT;
+  axis_bounds.origin.y = axis_bounds.size.h - GRAPH_BOTTOM_INSET - GRAPH_AXIS_HEIGHT;
   axis_bounds.size.h = GRAPH_AXIS_HEIGHT;
   // draw background
   graphics_context_set_fill_color(ctx, GColorWhite);
