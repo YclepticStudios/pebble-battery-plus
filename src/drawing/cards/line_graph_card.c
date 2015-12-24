@@ -9,19 +9,61 @@
 // @bugs No known bugs
 
 #include "card_render.h"
+#include "../../data.h"
 #include "../../utility.h"
 
 // Drawing Constants
 #define GRAPH_STROKE_WIDTH 2
-#define GRAPH_VERTICAL_INSET PBL_IF_RECT_ELSE(30, 30)
+#define GRAPH_VERTICAL_INSET PBL_IF_RECT_ELSE(30, 35)
 #define GRAPH_HORIZONTAL_INSET PBL_IF_RECT_ELSE(0, 18)
 #define GRAPH_AXIS_HEIGHT 20
 #define GRAPH_X_RANGE SEC_IN_WEEK
+#define GRAPH_Y_RANGE 100
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Private Functions
 //
+
+// Render line and fill
+static void prv_render_line(GRect bounds, GContext *ctx) {
+  // prep draw
+  GRect graph_bounds = GRect(GRAPH_HORIZONTAL_INSET, GRAPH_VERTICAL_INSET,
+    bounds.size.w - GRAPH_HORIZONTAL_INSET * 2, bounds.size.h - GRAPH_VERTICAL_INSET * 2);
+  // draw graph
+  uint16_t index = 0;
+  int32_t node_epoch;
+  uint8_t node_percent;
+  int32_t cur_epoch = time(NULL);
+  GPoint data_points[data_get_battery_data_point_count() + 2];
+  while (data_get_battery_data_point(index, &node_epoch, &node_percent)) {
+    // calculate screen location
+    data_points[index].x = graph_bounds.origin.x + graph_bounds.size.w -
+      graph_bounds.size.w * (cur_epoch - node_epoch) / GRAPH_X_RANGE;
+    data_points[index].y = graph_bounds.origin.y + graph_bounds.size.h -
+      graph_bounds.size.h * node_percent / GRAPH_Y_RANGE;
+    index++;
+  }
+  // add two last points along bottom of data to fill data
+  data_points[index] = GPoint(data_points[index - 1].x,
+    graph_bounds.origin.y + graph_bounds.size.h);
+  data_points[index + 1] = GPoint(data_points[0].x,
+    graph_bounds.origin.y + graph_bounds.size.h);
+  // draw graph fill
+  GPathInfo path_info = { .num_points = ARRAY_LENGTH(data_points), .points = data_points };
+  GPath *path = gpath_create(&path_info);
+  graphics_context_set_fill_color(ctx, GColorGreen);
+  graphics_context_set_antialiased(ctx, false);
+  gpath_draw_filled(ctx, path);
+  gpath_destroy(path);
+  // draw graph stroke
+  path_info.num_points -= 2;
+  path = gpath_create(&path_info);
+  graphics_context_set_stroke_width(ctx, GRAPH_STROKE_WIDTH);
+  graphics_context_set_stroke_color(ctx, GColorBlack);
+  gpath_draw_outline_open(ctx, path);
+  gpath_destroy(path);
+}
 
 // Render axis
 static void prv_render_axis(GRect bounds, GContext *ctx) {
@@ -78,6 +120,8 @@ void card_render_line_graph(Layer *layer, GContext *ctx) {
   // get bounds
   GRect bounds = layer_get_bounds(layer);
   bounds.origin = GPointZero;
+  // render graph line and fill
+  prv_render_line(bounds, ctx);
   // render graph axis with days of the week
   prv_render_axis(bounds, ctx);
 }
