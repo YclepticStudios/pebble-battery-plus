@@ -78,14 +78,16 @@ void drawing_initialize(Layer *window_layer) {
   // get params
   drawing_data.window_bounds = layer_get_bounds(window_layer);
   // initialize cards
-  drawing_data.scroll_offset = drawing_data.scroll_offset_ani = 0;
-  drawing_data.card_layer[0] = card_initialize(drawing_data.window_bounds,
+  // this must be done with the last initialized being the one which is selected first. As
+  // all the cards must initially be stacked on the screen so they can render themselves.
+  // When scrolling begins, they will reposition.
+  drawing_data.scroll_offset = drawing_data.scroll_offset_ani = -drawing_data.window_bounds.size.h;
+  drawing_data.card_layer[0] = card_initialize(drawing_data.window_bounds, CARD_PALETTE_BAR_GRAPH,
     CARD_BACK_COLOR_BAR_GRAPH, card_render_bar_graph);
-  drawing_data.card_layer[2] = card_initialize(drawing_data.window_bounds,
-    CARD_BACK_COLOR_DASHBOARD, card_render_dashboard);
-  drawing_data.card_layer[1] = card_initialize(drawing_data.window_bounds,
+  drawing_data.card_layer[1] = card_initialize(drawing_data.window_bounds, CARD_PALETTE_LINE_GRAPH,
     CARD_BACK_COLOR_LINE_GRAPH, card_render_line_graph);
-  prv_position_cards();
+  drawing_data.card_layer[2] = card_initialize(drawing_data.window_bounds, CARD_PALETTE_DASHBOARD,
+    CARD_BACK_COLOR_DASHBOARD, card_render_dashboard);
   // add to window
   for (uint8_t ii = 0; ii < DRAWING_CARD_COUNT; ii++) {
     layer_add_child(window_layer, drawing_data.card_layer[ii]);

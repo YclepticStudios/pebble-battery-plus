@@ -17,7 +17,8 @@
 
 // Main data structure
 typedef struct {
-  GBitmap             *screen_bmp;            //< Bitmap of rendered screen
+  GBitmap             *bmp_buff;            //< Bitmap of rendered screen
+  GBitmapFormat       bmp_format;             //< The format to cache the screen bitmap in
   GColor              background_color;       //< Background color for layer
   CardRenderHandler   render_handler;         //< Function pointer to render specific card
 } CardLayer;
@@ -28,25 +29,25 @@ typedef struct {
 //
 
 // Create screen bitmap from rendered graphics context
-static void prv_create_screen_bitmap(CardLayer *card_layer, GContext *ctx, GBitmapFormat format) {
+static void prv_create_screen_bitmap(CardLayer *card_layer, GContext *ctx) {
   // capture frame buffer and get properties
   GBitmap *old_bmp = graphics_capture_frame_buffer(ctx);
   GRect bmp_bounds = gbitmap_get_bounds(old_bmp);
   // copy to new bitmap and save
 #ifdef PBL_BW
   GBitmapFormat bmp_format = gbitmap_get_format(old_bmp);
-  card_layer->screen_bmp = gbitmap_create_blank(bmp_bounds.size, bmp_format);
-  ASSERT(card_layer->screen_bmp);
-  uint32_t bmp_length = gbitmap_get_bytes_per_row(card_layer->screen_bmp) * bmp_bounds.size.h;
-  memcpy(gbitmap_get_data(card_layer->screen_bmp), gbitmap_get_data(old_bmp), bmp_length);
+  card_layer->bmp_buff = gbitmap_create_blank(bmp_bounds.size, bmp_format);
+  ASSERT(card_layer->bmp_buff);
+  uint32_t bmp_length = gbitmap_get_bytes_per_row(card_layer->bmp_buff) * bmp_bounds.size.h;
+  memcpy(gbitmap_get_data(card_layer->bmp_buff), gbitmap_get_data(old_bmp), bmp_length);
 #else
   // choose new bitmap format
   uint8_t bmp_bits_per_pixel;
-  if (format == GBitmapFormat1BitPalette) {
+  if (card_layer->bmp_format == GBitmapFormat1BitPalette) {
     bmp_bits_per_pixel = 1;
-  } else if (format == GBitmapFormat2BitPalette) {
+  } else if (card_layer->bmp_format == GBitmapFormat2BitPalette) {
     bmp_bits_per_pixel = 2;
-  } else if (format == GBitmapFormat4BitPalette) {
+  } else if (card_layer->bmp_format == GBitmapFormat4BitPalette) {
     bmp_bits_per_pixel = 4;
   } else {
     bmp_bits_per_pixel = 8;
@@ -56,15 +57,15 @@ static void prv_create_screen_bitmap(CardLayer *card_layer, GContext *ctx, GBitm
   uint8_t palette_max_colors = (bmp_bits_per_pixel == 1) ? 2 :
     (bmp_bits_per_pixel * bmp_bits_per_pixel);
   GColor *palette = MALLOC(sizeof(GColor) * palette_max_colors);
-  card_layer->screen_bmp = gbitmap_create_blank_with_palette(bmp_bounds.size, format,
+  card_layer->bmp_buff = gbitmap_create_blank_with_palette(bmp_bounds.size, card_layer->bmp_format,
     palette, true);
-  ASSERT(card_layer->screen_bmp);
+  ASSERT(card_layer->bmp_buff);
   // loop over image rows
   GBitmapDataRowInfo old_row_info, new_row_info;
   for (uint8_t row = 0; row < bmp_bounds.size.h; row++) {
     // get row info
     old_row_info = gbitmap_get_data_row_info(old_bmp, row);
-    new_row_info = gbitmap_get_data_row_info(card_layer->screen_bmp, row);
+    new_row_info = gbitmap_get_data_row_info(card_layer->bmp_buff, row);
     // get the start of the row data
     // NOTE: if the new bitmap is square and old is round, we must add the old bitmap's byte offset
     // so data is copied from and to the same screen coordinates
@@ -113,23 +114,33 @@ static void prv_layer_update_handler(Layer *layer, GContext *ctx) {
   // get CardLayer data
   CardLayer *card_layer = layer_get_data(layer);
   // check if existing buffer
-  if (!card_layer->screen_bmp) {
+  if (!card_layer->bmp_buff) {
     // render card
     GRect bounds = layer_get_bounds(layer);
     bounds.origin = GPointZero;
     graphics_context_set_fill_color(ctx, card_layer->background_color);
     graphics_fill_rect(ctx, bounds, 0, GCornerNone);
-    card_layer->render_handler(layer, ctx);
-    // TODO: Deal with this unused function...
-    // save rendered screen as bitmap
-    if (card_layer->background_color.argb == GColorMelonARGB8) {
-      prv_create_screen_bitmap(card_layer, ctx, GBitmapFormat2BitPalette);
+    // if centered in screen, render and cache GContext as bitmap
+    GPoint layer_origin = layer_get_bounds(layer).origin;
+    if (gpoint_equal(&layer_origin, &GPointZero)) {
+      // render card
+      card_layer->render_handler(layer, ctx);
+      // cache as bitmap
+      prv_create_screen_bitmap(card_layer, ctx);
+    } else {
+      // draw loading text
+      graphics_context_set_text_color(ctx, GColorBlack);
+      GRect txt_bounds = bounds;
+      txt_bounds.origin.y += txt_bounds.size.h / 2 - 10;
+      txt_bounds.size.h = 30;
+      graphics_draw_text(ctx, "Loading...", fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+        txt_bounds, GTextOverflowModeFill, GTextAlignmentCenter, NULL);
     }
   } else {
     // draw bitmap
     GRect bounds = layer_get_bounds(layer);
     bounds.origin = GPointZero;
-    graphics_draw_bitmap_in_rect(ctx, card_layer->screen_bmp, bounds);
+    graphics_draw_bitmap_in_rect(ctx, card_layer->bmp_buff, bounds);
   }
 }
 
@@ -144,13 +155,15 @@ void card_refresh(Layer *layer) {
 }
 
 // Initialize card
-Layer *card_initialize(GRect bounds, GColor background_color, CardRenderHandler render_handler) {
+Layer *card_initialize(GRect bounds, GBitmapFormat bmp_format, GColor background_color,
+                       CardRenderHandler render_handler) {
   // create base layer with extra data
   Layer *layer = layer_create_with_data(bounds, sizeof(CardLayer));
   ASSERT(layer);
   layer_set_update_proc(layer, prv_layer_update_handler);
   CardLayer *card_layer = layer_get_data(layer);
-  card_layer->screen_bmp = NULL;
+  card_layer->bmp_buff = NULL;
+  card_layer->bmp_format = bmp_format;
   card_layer->background_color = background_color;
   card_layer->render_handler = render_handler;
   // return layer pointer
@@ -162,8 +175,8 @@ void card_terminate(Layer *layer) {
   // get layer data
   CardLayer *card_layer = layer_get_data(layer);
   // destroy layers
-  if (card_layer->screen_bmp) {
-    gbitmap_destroy(card_layer->screen_bmp);
+  if (card_layer->bmp_buff) {
+    gbitmap_destroy(card_layer->bmp_buff);
   }
   layer_destroy(layer);
 }

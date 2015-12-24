@@ -77,6 +77,8 @@ static void prv_render_ring(GRect bounds, GContext *ctx) {
 
 // Rendering function for dashboard card
 void card_render_dashboard(Layer *layer, GContext *ctx) {
+  // turn off anti-aliasing
+  graphics_context_set_antialiased(ctx, false);
   // get bounds
   GRect bounds = layer_get_bounds(layer);
   bounds.origin = GPointZero;

@@ -23,10 +23,12 @@ void card_render(Layer *layer);
 
 //! Initialize card
 //! @param bounds The dimensions of the window
+//! @param bmp_format The GBitmapFormat to cache the rendered screen in
 //! @param background_color The background fill color of the card
 //! @param render_handler The function which will be called to render this card
 //! @return A pointer to the base layer of this card
-Layer *card_initialize(GRect bounds, GColor background_color, CardRenderHandler render_handler);
+Layer *card_initialize(GRect bounds, GBitmapFormat bmp_format, GColor background_color,
+                       CardRenderHandler render_handler);
 
 //! Terminate card
 //! @param layer Pointer to base layer for card

@@ -16,6 +16,9 @@
 #define CARD_BACK_COLOR_DASHBOARD GColorElectricBlue
 #define CARD_BACK_COLOR_LINE_GRAPH GColorMelon
 #define CARD_BACK_COLOR_BAR_GRAPH GColorRichBrilliantLavender
+#define CARD_PALETTE_DASHBOARD GBitmapFormat4BitPalette
+#define CARD_PALETTE_LINE_GRAPH GBitmapFormat2BitPalette
+#define CARD_PALETTE_BAR_GRAPH GBitmapFormat2BitPalette
 
 
 //! Rendering function for dashboard card
