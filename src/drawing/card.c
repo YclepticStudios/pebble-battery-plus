@@ -28,18 +28,35 @@ typedef struct {
 //
 
 // Create screen bitmap from rendered graphics context
-static void prv_create_screen_bitmap(CardLayer *card_layer, GContext *ctx) {
+static void prv_create_screen_bitmap(CardLayer *card_layer, GContext *ctx, GBitmapFormat format) {
   // capture frame buffer and get properties
   GBitmap *old_bmp = graphics_capture_frame_buffer(ctx);
   GRect bmp_bounds = gbitmap_get_bounds(old_bmp);
+  // copy to new bitmap and save
+#ifdef PBL_BW
   GBitmapFormat bmp_format = gbitmap_get_format(old_bmp);
-  // create new bitmap
-  if (bmp_format != GBitmapFormat1Bit && bmp_format != GBitmapFormat1BitPalette) {
-    bmp_format = GBitmapFormat2BitPalette;
+  card_layer->screen_bmp = gbitmap_create_blank(bmp_bounds.size, bmp_format);
+  ASSERT(card_layer->screen_bmp);
+  uint32_t bmp_length = gbitmap_get_bytes_per_row(card_layer->screen_bmp) * bmp_bounds.size.h;
+  memcpy(gbitmap_get_data(card_layer->screen_bmp), gbitmap_get_data(old_bmp), bmp_length);
+#else
+  // choose new bitmap format
+  uint8_t bmp_bits_per_pixel;
+  if (format == GBitmapFormat1BitPalette) {
+    bmp_bits_per_pixel = 1;
+  } else if (format == GBitmapFormat2BitPalette) {
+    bmp_bits_per_pixel = 2;
+  } else if (format == GBitmapFormat4BitPalette) {
+    bmp_bits_per_pixel = 4;
+  } else {
+    bmp_bits_per_pixel = 8;
   }
-  uint8_t palette_size = 0;
-  GColor *palette = MALLOC(sizeof(GColor) * 4);
-  card_layer->screen_bmp = gbitmap_create_blank_with_palette(bmp_bounds.size, bmp_format,
+  // create new bitmap
+  uint8_t palette_colors = 0;
+  uint8_t palette_max_colors = (bmp_bits_per_pixel == 1) ? 2 :
+    (bmp_bits_per_pixel * bmp_bits_per_pixel);
+  GColor *palette = MALLOC(sizeof(GColor) * palette_max_colors);
+  card_layer->screen_bmp = gbitmap_create_blank_with_palette(bmp_bounds.size, format,
     palette, true);
   ASSERT(card_layer->screen_bmp);
   // loop over image rows
@@ -52,7 +69,7 @@ static void prv_create_screen_bitmap(CardLayer *card_layer, GContext *ctx) {
     // NOTE: if the new bitmap is square and old is round, we must add the old bitmap's byte offset
     // so data is copied from and to the same screen coordinates
     uint8_t *old_byte = old_row_info.data + old_row_info.min_x;
-    uint8_t *new_byte = new_row_info.data + old_row_info.min_x / 4;
+    uint8_t *new_byte = new_row_info.data + old_row_info.min_x / (8 / bmp_bits_per_pixel);
     // loop over all bytes in that row (max_x is inclusive)
     for ( ; old_byte <= old_row_info.data + old_row_info.max_x; old_byte++) {
       // palette index for color in old bitmap
@@ -60,51 +77,31 @@ static void prv_create_screen_bitmap(CardLayer *card_layer, GContext *ctx) {
       // loop over the palette and find the index of the current color. if not found, add the color
       do {
         // palette index reaches palette size if no matching color is found in the palette
-        if (palette_index == palette_size) {
+        if (palette_index == palette_colors) {
           // add the current color to the palette and break (the index matches this color's index)
           palette[palette_index] = (GColor){ .argb = (*old_byte) };
-          palette_size++;
+          palette_colors++;
           break;
         } else if (palette[palette_index].argb == (*old_byte)) {
           break;
         }
         palette_index++;
-      } while (palette_index <= palette_size);
+      } while (palette_index < palette_max_colors);
       // get the number of pixels from the right of the new bitmap
       uint16_t new_bmp_pix = (old_byte - (old_row_info.data + old_row_info.min_x)) +
-        old_row_info.min_x % 4;
+        old_row_info.min_x % (8 / bmp_bits_per_pixel);
       // get the number of bits into the new byte from the right, MSB first
       // (0b00000011 = 0, 0b00001100 = 2, etc)
-      uint8_t bit_index = 6 - ((new_bmp_pix % 4) * 2);
-      // set the bits in the new byte which correspond to the old byte
-      (*new_byte) |= ((0b00000011 << bit_index) & (palette_index << bit_index));
+      uint8_t bit_index = (8 - bmp_bits_per_pixel) - ((new_bmp_pix % (8 / bmp_bits_per_pixel)) *
+        bmp_bits_per_pixel);
+      // set the bits in the new byte which correspond to the old byte (max_colors - 1 is bitmask)
+      (*new_byte) |= (((uint8_t)(palette_max_colors - 1) << bit_index) &
+        (palette_index << bit_index));
       // index the new byte once it is full and zero the new location
       if (bit_index == 0) {
         new_byte++;
       }
     }
-  }
-
-
-
-
-
-
-
-//  uint32_t bmp_length = gbitmap_get_bytes_per_row(card_layer->screen_bmp) * frame_bounds.size.h;
-//  memcpy(gbitmap_get_data(card_layer->screen_bmp), gbitmap_get_data(frame_buff), bmp_length);
-#ifdef agasdf
-  uint8_t *screen_bmp_data = gbitmap_get_data(card_layer->screen_bmp);
-  GBitmapDataRowInfo row_info;
-  for (uint8_t row = 0; row < frame_bounds.size.h; row++) {
-    row_info = gbitmap_get_data_row_info(frame_buff, row);
-    memset(screen_bmp_data, card_layer->background_color.argb, row_info.min_x);
-    memcpy(screen_bmp_data + row_info.min_x, row_info.data + row_info.min_x, row_info.max_x -
-      row_info.min_x);
-    memset(screen_bmp_data + row_info.max_x, card_layer->background_color.argb,
-      frame_bounds.size.w - row_info.max_x);
-    // index
-    screen_bmp_data += gbitmap_get_bytes_per_row(card_layer->screen_bmp);
   }
 #endif
   // release frame buffer
@@ -126,7 +123,7 @@ static void prv_layer_update_handler(Layer *layer, GContext *ctx) {
     // TODO: Deal with this unused function...
     // save rendered screen as bitmap
     if (card_layer->background_color.argb == GColorMelonARGB8) {
-      prv_create_screen_bitmap(card_layer, ctx);
+      prv_create_screen_bitmap(card_layer, ctx, GBitmapFormat2BitPalette);
     }
   } else {
     // draw bitmap
