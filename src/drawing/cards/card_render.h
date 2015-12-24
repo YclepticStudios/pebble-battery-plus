@@ -15,7 +15,7 @@
 // Constants
 #define CARD_BACK_COLOR_DASHBOARD GColorLightGray
 #define CARD_BACK_COLOR_LINE_GRAPH GColorMelon
-#define CARD_BACK_COLOR_BAR_GRAPH GColorRichBrilliantLavender
+#define CARD_BACK_COLOR_BAR_GRAPH GColorElectricBlue
 #define CARD_PALETTE_DASHBOARD GBitmapFormat4BitPalette
 #define CARD_PALETTE_LINE_GRAPH GBitmapFormat2BitPalette
 #define CARD_PALETTE_BAR_GRAPH GBitmapFormat2BitPalette

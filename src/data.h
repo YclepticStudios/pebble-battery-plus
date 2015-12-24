@@ -12,6 +12,7 @@
 #include "utility.h"
 
 // Data constants
+#define DATA_PAST_RUN_TIMES_MAX 7
 #define DATA_LEVEL_LOW_THRESH_SEC 4 * SEC_IN_HR
 #define DATA_LEVEL_MED_THRESH_SEC SEC_IN_DAY
 
@@ -31,6 +32,12 @@ int32_t data_get_life_remaining(void);
 //! Get the time the watch was last charged
 //! @return The time the watch was lasted charged as a UTC epoch
 int32_t data_get_last_charge_time(void);
+
+//! Get a past run time by its index (0 is current, 1 is yesterday, etc)
+//! Must be between 0 and DATA_PAST_RUN_TIMES_MAX
+//! @param index The number of charge cycles into the past
+//! @return The duration of that run time in seconds
+int32_t data_get_past_run_time(uint16_t index);
 
 //! Get the record run time of the watch
 //! @return The record run time of the watch in seconds
