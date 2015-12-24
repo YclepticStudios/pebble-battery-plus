@@ -15,9 +15,11 @@
 #define COLOR_RING_LOW PBL_IF_COLOR_ELSE(GColorRed, GColorLightGray)
 #define COLOR_RING_MED PBL_IF_COLOR_ELSE(GColorYellow, GColorLightGray)
 #define COLOR_RING_NORM GColorGreen
-#define COLOR_RING_EMPTY GColorLightGray
+#define COLOR_RING_EMPTY PBL_IF_COLOR_ELSE(GColorLightGray, GColorBlack)
 #define CENTER_STROKE_WIDTH 3
 #define RING_WIDTH PBL_IF_ROUND_ELSE(18, 16)
+#define SELECTED_TEXT_INSET PBL_IF_ROUND_ELSE(GEdgeInsets3(-2, 23, 22), GEdgeInsets3(4, 6, 6))
+#define SELECTED_TEXT_CORNER_RAD PBL_IF_ROUND_ELSE(7, 4)
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -43,8 +45,61 @@ static void prv_render_battery_percent(GContext *ctx, GRect bounds) {
 }
 
 // Render selected text showing times for colors on ring
-static void prv_render_selected_text(GContext *ctx, GRect bounds) {
-
+static void prv_render_selected_text(GContext *ctx, GRect bounds, uint16_t click_count) {
+  // get display mode
+  char *hint_text;
+  GColor selection_color;
+  int32_t selection_value = data_get_life_remaining();
+  uint16_t tmp_max_modes = 2 + (selection_value > DATA_LEVEL_MED_THRESH_SEC) +
+                       (selection_value > DATA_LEVEL_LOW_THRESH_SEC);
+  uint16_t cur_mode = click_count % tmp_max_modes;
+  if (cur_mode == 0) {
+    hint_text = "Remaining";
+    GColor ring_colors[] = { COLOR_RING_LOW, COLOR_RING_MED, COLOR_RING_NORM };
+    selection_color = ring_colors[tmp_max_modes - 2];
+  } else if (cur_mode == 1) {
+    hint_text = "Run Time";
+    selection_color = COLOR_RING_EMPTY;
+    selection_value = data_get_run_time();
+  } else if (cur_mode == 2) {
+    hint_text = "Low Alert";
+    selection_color = COLOR_RING_LOW;
+    selection_value = DATA_LEVEL_LOW_THRESH_SEC;
+  } else {
+    hint_text = "Med Alert";
+    selection_color = COLOR_RING_MED;
+    selection_value = DATA_LEVEL_MED_THRESH_SEC;
+  }
+  // get text
+  int days = selection_value / SEC_IN_DAY;
+  int hrs = selection_value % SEC_IN_DAY / SEC_IN_HR;
+  char day_buff[4], hr_buff[3];
+  snprintf(day_buff, sizeof(day_buff), "%d", days);
+  snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
+  // get bounds
+  GRect selection_bounds = grect_inset(bounds, GEdgeInsets1(RING_WIDTH));
+  selection_bounds.size.h /= 2;
+  selection_bounds.origin.y += selection_bounds.size.h;
+  selection_bounds = grect_inset(selection_bounds, SELECTED_TEXT_INSET);
+  GRect txt_bounds = selection_bounds;
+  txt_bounds.origin.y += 15;
+  txt_bounds.size.h -= 15;
+  // draw background
+  graphics_context_set_fill_color(ctx, selection_color);
+  graphics_fill_rect(ctx, selection_bounds, SELECTED_TEXT_CORNER_RAD, GCornersAll);
+  // draw text
+  RichTextElement rich_text[] = {
+    {day_buff, FONT_KEY_LECO_32_BOLD_NUMBERS},
+    {"d ",     FONT_KEY_GOTHIC_18_BOLD},
+    {hr_buff,  FONT_KEY_LECO_32_BOLD_NUMBERS},
+    {"h",      FONT_KEY_GOTHIC_18_BOLD}
+  };
+  graphics_context_set_text_color(ctx, gcolor_legible_over(selection_color));
+  card_render_rich_text(ctx, txt_bounds, ARRAY_LENGTH(rich_text), rich_text);
+  // draw hint
+  selection_bounds.origin.y -= 2;
+  graphics_draw_text(ctx, hint_text, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+    selection_bounds, GTextOverflowModeFill, GTextAlignmentCenter, NULL);
 }
 
 // Render progress ring
@@ -110,5 +165,5 @@ void card_render_dashboard(Layer *layer, GContext *ctx, uint16_t click_count) {
   // render battery percent text
   prv_render_battery_percent(ctx, bounds);
   // render selected text
-  prv_render_selected_text(ctx, bounds);
+  prv_render_selected_text(ctx, bounds, click_count);
 }

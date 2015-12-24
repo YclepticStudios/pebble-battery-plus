@@ -12,7 +12,7 @@
 #include "card_render.h"
 
 // Constants
-#define TEXT_TOP_BORDER_FRACTION 3 / 25
+#define TEXT_TOP_BORDER_FRACTION 250 / 2000 // Old: 3 / 25
 
 
 // Render rich text with different fonts onto a graphics context

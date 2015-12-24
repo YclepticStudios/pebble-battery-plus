@@ -57,7 +57,7 @@ static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
   // no need to read what is sent, just update the data
   data_load_past_days(DATA_LOAD_NUM_DAYS);
   // refresh the screen
-  prv_tick_timer_service_handler(NULL, MINUTE_UNIT);
+  drawing_refresh();
 }
 
 
