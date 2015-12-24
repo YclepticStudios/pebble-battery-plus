@@ -11,9 +11,8 @@
 
 #include "drawing.h"
 #include "../animation/animation.h"
-#include "bar_graph_card.h"
-#include "dashboard_card.h"
-#include "line_graph_card.h"
+#include "card.h"
+#include "cards/card_render.h"
 
 // Constants
 #define CARD_SLIDE_ANIMATION_DURATION 100
@@ -80,9 +79,12 @@ void drawing_initialize(Layer *window_layer) {
   drawing_data.window_bounds = layer_get_bounds(window_layer);
   // initialize cards
   drawing_data.scroll_offset = drawing_data.scroll_offset_ani = 0;
-  drawing_data.card_layer[0] = dashboard_card_initialize(drawing_data.window_bounds);
-  drawing_data.card_layer[1] = line_graph_card_initialize(drawing_data.window_bounds);
-  drawing_data.card_layer[2] = bar_graph_card_initialize(drawing_data.window_bounds);
+  drawing_data.card_layer[0] = card_initialize(drawing_data.window_bounds,
+    CARD_BACK_COLOR_BAR_GRAPH, card_render_bar_graph);
+  drawing_data.card_layer[1] = card_initialize(drawing_data.window_bounds,
+    CARD_BACK_COLOR_DASHBOARD, card_render_dashboard);
+  drawing_data.card_layer[2] = card_initialize(drawing_data.window_bounds,
+    CARD_BACK_COLOR_LINE_GRAPH, card_render_line_graph);
   prv_position_cards();
   // add to window
   for (uint8_t ii = 0; ii < DRAWING_CARD_COUNT; ii++) {
@@ -95,7 +97,7 @@ void drawing_initialize(Layer *window_layer) {
 // Terminate all cards and free memory
 void drawing_terminate(void) {
   // destroy cards
-  dashboard_card_terminate();
-  line_graph_card_terminate();
-  bar_graph_card_terminate();
+  for (uint8_t ii = 0; ii < DRAWING_CARD_COUNT; ii++) {
+    card_terminate(drawing_data.card_layer[ii]);
+  }
 }
