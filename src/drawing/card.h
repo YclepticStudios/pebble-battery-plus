@@ -15,11 +15,14 @@
 #include <pebble.h>
 
 //! Card callback type
-typedef void (*CardRenderHandler)(Layer*, GContext*);
+typedef void (*CardRenderHandler)(Layer*, GContext*, uint16_t);
 
 
 //! Refresh everything on card
-void card_render(Layer *layer);
+void card_refresh(Layer *layer);
+
+//! Send click event to current card and re-render
+void card_select_click(Layer *layer);
 
 //! Initialize card
 //! @param bounds The dimensions of the window

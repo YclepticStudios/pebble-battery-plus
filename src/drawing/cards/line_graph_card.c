@@ -27,7 +27,7 @@
 //
 
 // Render line and fill
-static void prv_render_line(GRect bounds, GContext *ctx) {
+static void prv_render_line(GContext *ctx, GRect bounds) {
   // prep draw
   GRect graph_bounds = GRect(GRAPH_HORIZONTAL_INSET, GRAPH_TOP_INSET, bounds.size.w -
     GRAPH_HORIZONTAL_INSET * 2, bounds.size.h - GRAPH_TOP_INSET - GRAPH_BOTTOM_INSET);
@@ -67,7 +67,7 @@ static void prv_render_line(GRect bounds, GContext *ctx) {
 }
 
 // Render axis
-static void prv_render_axis(GRect bounds, GContext *ctx) {
+static void prv_render_axis(GContext *ctx, GRect bounds) {
   // reshape bounds
   GRect axis_bounds = bounds;
   axis_bounds.origin.y = axis_bounds.size.h - GRAPH_BOTTOM_INSET - GRAPH_AXIS_HEIGHT;
@@ -117,12 +117,12 @@ static void prv_render_axis(GRect bounds, GContext *ctx) {
 //
 
 // Rendering function for line graph card
-void card_render_line_graph(Layer *layer, GContext *ctx) {
+void card_render_line_graph(Layer *layer, GContext *ctx, uint16_t click_count) {
   // get bounds
   GRect bounds = layer_get_bounds(layer);
   bounds.origin = GPointZero;
   // render graph line and fill
-  prv_render_line(bounds, ctx);
+  prv_render_line(ctx, bounds);
   // render graph axis with days of the week
-  prv_render_axis(bounds, ctx);
+  prv_render_axis(ctx, bounds);
 }

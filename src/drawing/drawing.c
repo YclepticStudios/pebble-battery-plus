@@ -59,7 +59,21 @@ static void prv_animation_handler(void) {
 //
 
 // Refresh all visible elements
-void drawing_refresh(void);
+void drawing_refresh(void) {
+  for (uint8_t ii = 0; ii < DRAWING_CARD_COUNT; ii++) {
+    card_refresh(drawing_data.card_layer[ii]);
+  }
+}
+
+// Select click handler for current card
+void drawing_select_click(void) {
+  // get current card
+  uint8_t card_index = (DRAWING_CARD_COUNT -
+    ((drawing_data.scroll_offset / drawing_data.window_bounds.size.h) % DRAWING_CARD_COUNT - 1)) %
+    DRAWING_CARD_COUNT;
+  // send click event
+  card_select_click(drawing_data.card_layer[card_index]);
+}
 
 // Select next or previous card
 void drawing_select_next_card(bool up) {

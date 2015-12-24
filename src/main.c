@@ -32,7 +32,7 @@ void up_single_click_handler(ClickRecognizerRef recognizer, void *context) {
 
 // Select click handler
 void select_single_click_handler(ClickRecognizerRef recognizer, void *context) {
-
+  drawing_select_click();
 }
 
 // Down click handler

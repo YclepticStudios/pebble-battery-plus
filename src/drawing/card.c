@@ -17,9 +17,11 @@
 
 // Main data structure
 typedef struct {
-  GBitmap             *bmp_buff;            //< Bitmap of rendered screen
+  GBitmap             *bmp_buff;              //< Bitmap of rendered screen
   GBitmapFormat       bmp_format;             //< The format to cache the screen bitmap in
   GColor              background_color;       //< Background color for layer
+  uint16_t            click_count;            //< Number of select click events on this card
+  bool                pending_refresh;        //< If the card needs to be re-rendered into the cache
   CardRenderHandler   render_handler;         //< Function pointer to render specific card
 } CardLayer;
 
@@ -113,20 +115,25 @@ static void prv_create_screen_bitmap(CardLayer *card_layer, GContext *ctx) {
 static void prv_layer_update_handler(Layer *layer, GContext *ctx) {
   // get CardLayer data
   CardLayer *card_layer = layer_get_data(layer);
+  GPoint layer_origin = layer_get_bounds(layer).origin;
+  bool layer_is_screen_aligned = gpoint_equal(&layer_origin, &GPointZero);
   // check if existing buffer
-  if (!card_layer->bmp_buff) {
+  if (!card_layer->bmp_buff || (card_layer->pending_refresh && layer_is_screen_aligned)) {
     // render card
     GRect bounds = layer_get_bounds(layer);
     bounds.origin = GPointZero;
     graphics_context_set_fill_color(ctx, card_layer->background_color);
     graphics_fill_rect(ctx, bounds, 0, GCornerNone);
     // if centered in screen, render and cache GContext as bitmap
-    GPoint layer_origin = layer_get_bounds(layer).origin;
-    if (gpoint_equal(&layer_origin, &GPointZero)) {
+    if (layer_is_screen_aligned) {
       // render card
-      card_layer->render_handler(layer, ctx);
+      card_layer->render_handler(layer, ctx, card_layer->click_count);
       // cache as bitmap
+      if (card_layer->bmp_buff) {
+        gbitmap_destroy(card_layer->bmp_buff);
+      }
       prv_create_screen_bitmap(card_layer, ctx);
+      card_layer->pending_refresh = false;
     } else {
       // draw loading text
       graphics_context_set_text_color(ctx, GColorBlack);
@@ -151,7 +158,16 @@ static void prv_layer_update_handler(Layer *layer, GContext *ctx) {
 
 // Refresh everything on card
 void card_refresh(Layer *layer) {
-  // TODO: Implement this function
+  CardLayer *card_layer = layer_get_data(layer);
+  card_layer->pending_refresh = true;
+  layer_mark_dirty(layer);
+}
+
+// Send click event to current card and re-render
+void card_select_click(Layer *layer) {
+  CardLayer *card_layer = layer_get_data(layer);
+  card_layer->click_count++;
+  card_refresh(layer);
 }
 
 // Initialize card
@@ -165,6 +181,8 @@ Layer *card_initialize(GRect bounds, GBitmapFormat bmp_format, GColor background
   card_layer->bmp_buff = NULL;
   card_layer->bmp_format = bmp_format;
   card_layer->background_color = background_color;
+  card_layer->click_count = 0;
+  card_layer->pending_refresh = true;
   card_layer->render_handler = render_handler;
   // return layer pointer
   return layer;

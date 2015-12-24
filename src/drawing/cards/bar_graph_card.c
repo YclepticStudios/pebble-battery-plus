@@ -16,7 +16,7 @@
 //
 
 // Dummy rendering function
-static void prv_dummy_render(Layer *layer, GContext *ctx) {
+static void prv_dummy_render(GContext *ctx, Layer *layer) {
   graphics_context_set_text_color(ctx, GColorBlack);
   graphics_draw_text(ctx, "Bar Graph", fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD),
     GRect(0, 40, 144, 30), GTextOverflowModeFill, GTextAlignmentCenter, NULL);
@@ -28,6 +28,6 @@ static void prv_dummy_render(Layer *layer, GContext *ctx) {
 //
 
 // Rendering function for bar graph card
-void card_render_bar_graph(Layer *layer, GContext *ctx) {
-  prv_dummy_render(layer, ctx);
+void card_render_bar_graph(Layer *layer, GContext *ctx, uint16_t click_count) {
+  prv_dummy_render(ctx, layer);
 }

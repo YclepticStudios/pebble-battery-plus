@@ -24,8 +24,31 @@
 // Private Functions
 //
 
+// Render battery percent text
+static void prv_render_battery_percent(GContext *ctx, GRect bounds) {
+  // get text
+  char buff[4];
+  snprintf(buff, sizeof(buff), "%d", data_get_battery_percent());
+  // get bounds
+  GRect txt_bounds = grect_inset(bounds, GEdgeInsets1(RING_WIDTH));
+  txt_bounds.size.h /= 2;
+  // draw text
+  RichTextElement rich_text[] = {
+    {"   ", FONT_KEY_GOTHIC_18_BOLD},
+    {buff,  FONT_KEY_LECO_42_NUMBERS},
+    {"%",   FONT_KEY_GOTHIC_18_BOLD}
+  };
+  graphics_context_set_text_color(ctx, GColorBlack);
+  card_render_rich_text(ctx, txt_bounds, ARRAY_LENGTH(rich_text), rich_text);
+}
+
+// Render selected text showing times for colors on ring
+static void prv_render_selected_text(GContext *ctx, GRect bounds) {
+
+}
+
 // Render progress ring
-static void prv_render_ring(GRect bounds, GContext *ctx) {
+static void prv_render_ring(GContext *ctx, GRect bounds) {
   // calculate angles for ring color change positions
   int32_t max_life_sec = data_get_max_life();
   int32_t angle_low = TRIG_MAX_ANGLE * DATA_LEVEL_LOW_THRESH_SEC / max_life_sec;
@@ -55,17 +78,17 @@ static void prv_render_ring(GRect bounds, GContext *ctx) {
   graphics_context_set_fill_color(ctx, COLOR_RING_EMPTY);
   graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius, angle_level,
     TRIG_MAX_ANGLE);
-  // draw border around center
+  // draw border and center
   graphics_context_set_stroke_color(ctx, GColorBlack);
+  graphics_context_set_fill_color(ctx, GColorWhite);
   graphics_context_set_stroke_width(ctx, CENTER_STROKE_WIDTH);
 #ifdef PBL_ROUND
+  graphics_fill_circle(ctx, grect_center_point(&bounds), (small_side + CENTER_STROKE_WIDTH) / 2 -
+   1);
   graphics_draw_circle(ctx, grect_center_point(&bounds), (small_side + CENTER_STROKE_WIDTH) / 2 -
    1);
 #else
-  // draw white rectangle to cover center of circle
-  graphics_context_set_fill_color(ctx, GColorWhite);
   graphics_fill_rect(ctx, grect_inset(bounds, GEdgeInsets1(RING_WIDTH)), 0, GCornerNone);
-  // draw border
   graphics_draw_rect(ctx, grect_inset(bounds, GEdgeInsets1(RING_WIDTH - CENTER_STROKE_WIDTH / 2)));
 #endif
 }
@@ -76,12 +99,16 @@ static void prv_render_ring(GRect bounds, GContext *ctx) {
 //
 
 // Rendering function for dashboard card
-void card_render_dashboard(Layer *layer, GContext *ctx) {
+void card_render_dashboard(Layer *layer, GContext *ctx, uint16_t click_count) {
   // turn off anti-aliasing
   graphics_context_set_antialiased(ctx, false);
   // get bounds
   GRect bounds = layer_get_bounds(layer);
   bounds.origin = GPointZero;
   // render to graphics context
-  prv_render_ring(bounds, ctx);
+  prv_render_ring(ctx, bounds);
+  // render battery percent text
+  prv_render_battery_percent(ctx, bounds);
+  // render selected text
+  prv_render_selected_text(ctx, bounds);
 }

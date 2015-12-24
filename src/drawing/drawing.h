@@ -19,6 +19,9 @@
 //! Refresh all visible elements
 void drawing_refresh(void);
 
+//! Select click handler for current card
+void drawing_select_click(void);
+
 //! Select next or previous card
 //! @param up True if the selection should move up, else false
 void drawing_select_next_card(bool up);
