@@ -9,6 +9,11 @@
 
 #pragma once
 #include <pebble.h>
+#include "utility.h"
+
+// Data constants
+#define DATA_LEVEL_LOW_THRESH_SEC 4 * SEC_IN_HR
+#define DATA_LEVEL_MED_THRESH_SEC SEC_IN_DAY
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

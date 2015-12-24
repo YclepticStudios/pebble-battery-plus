@@ -13,7 +13,7 @@
 #include <pebble.h>
 
 // Constants
-#define CARD_BACK_COLOR_DASHBOARD GColorLightGray
+#define CARD_BACK_COLOR_DASHBOARD GColorElectricBlue
 #define CARD_BACK_COLOR_LINE_GRAPH GColorMelon
 #define CARD_BACK_COLOR_BAR_GRAPH GColorRichBrilliantLavender
 
