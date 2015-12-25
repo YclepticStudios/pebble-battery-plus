@@ -197,11 +197,12 @@ static void prv_first_launch(void) {
 static void prv_initialize(void) {
   // check if previously launched
   if (persist_exists(DATA_PERSIST_KEY)) {
+    // invalidate the run time to prevent fake record lives
+    persist_write_int(STATS_LAST_CHARGE_KEY, time(NULL));
+    // load most recent node
     prv_load_last_data_node();
-    // TODO: Maybe invalidate the record run time to prevent cheating by turning off the tracker
   } else {
     prv_first_launch();
-
   }
   // create data logging session
   data_log_session = data_logging_create(DATA_LOGGING_TAG, DATA_LOGGING_BYTE_ARRAY,
