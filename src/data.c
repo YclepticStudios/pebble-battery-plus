@@ -12,6 +12,7 @@
 #include "utility.h"
 
 // Constants
+#define DATA_HISTORY_INDEX_MAX 7
 #define PERSIST_DATA_LENGTH 256
 #define STATS_LAST_CHARGE_KEY 997
 #define STATS_RECORD_LIFE_KEY 998
@@ -31,49 +32,14 @@ typedef struct DataNode {
 static DataNode *head_node = NULL; // Newest at start
 static uint16_t prv_node_count = 0; // Total number of nodes currently loaded in memory
 static int32_t prv_charge_rate, prv_last_charged, prv_record_life;
-static int32_t prv_past_run_times[DATA_PAST_RUN_TIMES_MAX] = {0};
+static int32_t prv_past_run_times[DATA_HISTORY_INDEX_MAX] = {0};
+static int32_t prv_past_max_life[DATA_HISTORY_INDEX_MAX] = {0};
+static uint16_t prv_history_point_count = 0;
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Private Functions
 //
-
-// Get the past run times from flash data (assumes data is there)
-static void prv_load_past_run_times(void) {
-  // prep for stats
-  uint8_t run_time_index = 0;
-  bool last_was_charging = true;
-  int32_t tmp_last_charged = time(NULL);
-  // prep for data
-  uint32_t persist_key = persist_read_int(DATA_PERSIST_KEY);
-  uint32_t worker_node_size = sizeof(DataNode) - sizeof(((DataNode*)0)->next);
-  DataNode tmp_node;
-  char buff[PERSIST_DATA_LENGTH];
-  // loop over data
-  while (persist_key > DATA_PERSIST_KEY && persist_exists(persist_key)) {
-    persist_read_data(persist_key, buff, persist_get_size(persist_key));
-    for (char *ptr = buff + persist_get_size(persist_key) - worker_node_size; ptr >= buff;
-         ptr -= worker_node_size) {
-      // update data node
-      memcpy(&tmp_node, ptr, worker_node_size);
-      // do data calculations
-      if (tmp_node.charging) {
-        // check if going from not charging to charging
-        if (!last_was_charging) {
-          prv_past_run_times[run_time_index++] = tmp_last_charged - tmp_node.epoch;
-          // check if done
-          if (run_time_index >= DATA_PAST_RUN_TIMES_MAX) {
-            return;
-          }
-        }
-        tmp_last_charged = tmp_node.epoch;
-      }
-      last_was_charging = tmp_node.charging;
-    }
-    // index key
-    persist_key--;
-  }
-}
 
 // Get the latest data node (returns the current battery value if no nodes)
 static DataNode prv_get_latest_node(void) {
@@ -115,10 +81,64 @@ static void prv_list_add_node_end(DataNode *node) {
   prv_node_count++;
 }
 
+// Get the past run times from flash data (assumes data is there)
+static void prv_load_past_run_times(void) {
+  // prep for stats
+  uint8_t run_time_index = 0;
+  int32_t tmp_charge_rate = prv_charge_rate;
+  bool last_was_charging = true;
+  int32_t tmp_last_charged = time(NULL);
+  prv_past_max_life[0] = tmp_charge_rate * (-100);
+  // prep for data
+  uint32_t persist_key = persist_read_int(DATA_PERSIST_KEY);
+  uint32_t worker_node_size = sizeof(DataNode) - sizeof(((DataNode*)0)->next);
+  DataNode tmp_node, tmp_node_new = prv_get_latest_node(); // new is in time, closer to present
+  char buff[PERSIST_DATA_LENGTH];
+  // loop over data
+  while (persist_key > DATA_PERSIST_KEY && persist_exists(persist_key)) {
+    persist_read_data(persist_key, buff, persist_get_size(persist_key));
+    for (char *ptr = buff + persist_get_size(persist_key) - worker_node_size; ptr >= buff;
+         ptr -= worker_node_size) {
+      // update data node
+      memcpy(&tmp_node, ptr, worker_node_size);
+      // do data calculations
+      if (tmp_node.charging) {
+        // check if going from not charging to charging
+        if (!last_was_charging) {
+          prv_past_run_times[run_time_index++] = tmp_last_charged - tmp_node.epoch;
+          // check if done
+          if (run_time_index >= DATA_HISTORY_INDEX_MAX) {
+            // log number of data points
+            prv_history_point_count = run_time_index;
+            return;
+          }
+          prv_past_max_life[run_time_index] = tmp_charge_rate * (-100);
+        }
+        tmp_last_charged = tmp_node.epoch;
+      } else if (!last_was_charging && tmp_node.percent > tmp_node_new.percent) {
+        // calculate past charge rates
+        tmp_charge_rate = tmp_charge_rate * 5 / 4 - ((tmp_node_new.epoch - tmp_node.epoch) /
+          (tmp_node_new.percent - tmp_node.percent)) / 4;
+      }
+      last_was_charging = tmp_node.charging;
+      tmp_node_new = tmp_node;
+    }
+    // index key
+    persist_key--;
+  }
+  // log number of data points
+  prv_history_point_count = run_time_index;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // API Implementation
 //
+
+// Get the number of points of history loaded (for run time and max life)
+uint16_t data_get_history_points_count(void) {
+ return prv_history_point_count;
+}
 
 // Get the time the watch needs to be charged by
 int32_t data_get_charge_by_time(void) {
@@ -143,7 +163,7 @@ int32_t data_get_last_charge_time(void) {
 }
 
 // Get a past run time by its index (0 is current, 1 is yesterday, etc)
-// Must be between 0 and DATA_PAST_RUN_TIMES_MAX
+// Must be between 0 and DATA_HISTORY_INDEX_MAX
 int32_t data_get_past_run_time(uint16_t index) {
   return prv_past_run_times[index];
 }
@@ -184,6 +204,12 @@ uint8_t data_get_battery_percent(void) {
     percent = 0;
   }
   return percent;
+}
+
+// Get a past max life by its index (0 is current, 1 is yesterday, etc)
+// Must be between 0 and DATA_HISTORY_INDEX_MAX
+int32_t data_get_past_max_life(uint16_t index) {
+  return prv_past_max_life[index];
 }
 
 // Get the maximum battery life possible with the current discharge rate

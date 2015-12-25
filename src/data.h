@@ -12,7 +12,6 @@
 #include "utility.h"
 
 // Data constants
-#define DATA_PAST_RUN_TIMES_MAX 7
 #define DATA_LEVEL_LOW_THRESH_SEC 4 * SEC_IN_HR
 #define DATA_LEVEL_MED_THRESH_SEC SEC_IN_DAY
 
@@ -20,6 +19,10 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // API Implementation
 //
+
+//! Get the number of points of history loaded (for run time and max life)
+//! @return The number of data points available
+uint16_t data_get_history_points_count(void);
 
 //! Get the time the watch needs to be charged by
 //! @return The time the watch needs to be charged as a UTC epoch
@@ -34,7 +37,7 @@ int32_t data_get_life_remaining(void);
 int32_t data_get_last_charge_time(void);
 
 //! Get a past run time by its index (0 is current, 1 is yesterday, etc)
-//! Must be between 0 and DATA_PAST_RUN_TIMES_MAX
+//! Must be between 0 and DATA_HISTORY_INDEX_MAX
 //! @param index The number of charge cycles into the past
 //! @return The duration of that run time in seconds
 int32_t data_get_past_run_time(uint16_t index);
@@ -54,6 +57,12 @@ int32_t data_get_percent_per_day(void);
 //! Get the current battery percentage (this is an estimate of the exact value)
 //! @return An estimate of the current exact battery percent
 uint8_t data_get_battery_percent(void);
+
+//! Get a past max life by its index (0 is current, 1 is yesterday, etc)
+//! Must be between 0 and DATA_HISTORY_INDEX_MAX
+//! @param index The number of charge cycles into the past
+//! @return The duration of that max life in seconds
+int32_t data_get_past_max_life(uint16_t index);
 
 //! Get the maximum battery life possible with the current discharge rate
 //! @return The maximum seconds of battery life
