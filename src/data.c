@@ -12,7 +12,7 @@
 #include "utility.h"
 
 // Constants
-#define DATA_HISTORY_INDEX_MAX 7
+#define DATA_HISTORY_INDEX_MAX 9
 #define PERSIST_DATA_LENGTH 256
 #define STATS_LAST_CHARGE_KEY 997
 #define STATS_RECORD_LIFE_KEY 998

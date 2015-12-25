@@ -19,8 +19,8 @@
 #define GRAPH_BOTTOM_INSET PBL_IF_RECT_ELSE(50, 55)
 #define GRAPH_HORIZONTAL_INSET PBL_IF_RECT_ELSE(0, 18)
 #define GRAPH_AXIS_HEIGHT 20
-#define GRAPH_X_RANGE SEC_IN_WEEK
 #define GRAPH_Y_RANGE 100
+#define CLICK_MODE_MAX 3
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -36,7 +36,7 @@ static void prv_render_text(GContext *ctx, GRect bounds) {
 }
 
 // Render line and fill
-static void prv_render_line(GContext *ctx, GRect bounds) {
+static void prv_render_line(GContext *ctx, GRect bounds, int32_t graph_x_range) {
   // prep draw
   GRect graph_bounds = GRect(GRAPH_HORIZONTAL_INSET, GRAPH_TOP_INSET, bounds.size.w -
     GRAPH_HORIZONTAL_INSET * 2, bounds.size.h - GRAPH_TOP_INSET - GRAPH_BOTTOM_INSET);
@@ -49,7 +49,7 @@ static void prv_render_line(GContext *ctx, GRect bounds) {
   while (data_get_battery_data_point(index, &node_epoch, &node_percent)) {
     // calculate screen location
     data_points[index].x = graph_bounds.origin.x + graph_bounds.size.w -
-      graph_bounds.size.w * (cur_epoch - node_epoch) / GRAPH_X_RANGE;
+      graph_bounds.size.w * (cur_epoch - node_epoch) / graph_x_range;
     data_points[index].y = graph_bounds.origin.y + graph_bounds.size.h -
       graph_bounds.size.h * node_percent / GRAPH_Y_RANGE;
     index++;
@@ -76,7 +76,7 @@ static void prv_render_line(GContext *ctx, GRect bounds) {
 }
 
 // Render axis
-static void prv_render_axis(GContext *ctx, GRect bounds) {
+static void prv_render_axis(GContext *ctx, GRect bounds, int32_t graph_x_range) {
   // reshape bounds
   GRect axis_bounds = bounds;
   axis_bounds.origin.y = axis_bounds.size.h - GRAPH_BOTTOM_INSET;
@@ -101,17 +101,18 @@ static void prv_render_axis(GContext *ctx, GRect bounds) {
   int8_t day_of_week = tm_time.tm_wday;
   GRect txt_bounds = axis_bounds;
   txt_bounds.origin.y -= 2;
-  txt_bounds.size.w = axis_bounds.size.w * SEC_IN_DAY / GRAPH_X_RANGE;
+  txt_bounds.size.w = axis_bounds.size.w * SEC_IN_DAY / graph_x_range;
   uint8_t ii = 0;
   char *dow_buff;
   do {
     // calculate x offset
     txt_bounds.origin.x = axis_bounds.origin.x + axis_bounds.size.w -
-      ((l_time % SEC_IN_DAY + ii * SEC_IN_DAY) * axis_bounds.size.w / GRAPH_X_RANGE);
+      ((l_time % SEC_IN_DAY + ii * SEC_IN_DAY) * axis_bounds.size.w / graph_x_range);
     // draw text
     dow_buff = &("S\0M\0T\0W\0T\0F\0S\0")[day_of_week * 2];
-    graphics_draw_text(ctx, dow_buff, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), txt_bounds,
-      GTextOverflowModeFill, GTextAlignmentCenter, NULL);
+    graphics_draw_text(ctx, dow_buff, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+      grect_inset(txt_bounds, GEdgeInsets2(0, -3)), GTextOverflowModeFill, GTextAlignmentCenter,
+      NULL);
     // index
     ii++;
     if (--day_of_week < 0) {
@@ -130,10 +131,22 @@ void card_render_line_graph(Layer *layer, GContext *ctx, uint16_t click_count) {
   // get bounds
   GRect bounds = layer_get_bounds(layer);
   bounds.origin = GPointZero;
+  // get graph x range
+  int32_t graph_x_range;
+  switch (click_count % CLICK_MODE_MAX) {
+    case 1:
+      graph_x_range = SEC_IN_DAY * 3;
+      break;
+    case 2:
+      graph_x_range = SEC_IN_DAY * 14;
+      break;
+    default:
+      graph_x_range = SEC_IN_WEEK;
+  }
   // render graph line and fill
-  prv_render_line(ctx, bounds);
+  prv_render_line(ctx, bounds, graph_x_range);
   // render graph axis with days of the week
-  prv_render_axis(ctx, bounds);
+  prv_render_axis(ctx, bounds, graph_x_range);
   // render text
   prv_render_text(ctx, bounds);
 }

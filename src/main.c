@@ -13,7 +13,7 @@
 #include "utility.h"
 
 // Main constants
-#define DATA_LOAD_NUM_DAYS 7
+#define DATA_LOAD_NUM_DAYS 14
 
 // Main data structure
 static struct {
