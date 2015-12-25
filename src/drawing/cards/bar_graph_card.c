@@ -18,7 +18,7 @@
 #define COLOR_MAX_LIFE GColorBlueMoon
 #define GRAPH_STROKE_WIDTH 3
 #define GRAPH_TOP_INSET PBL_IF_RECT_ELSE(40, 45)
-#define GRAPH_BOTTOM_INSET PBL_IF_RECT_ELSE(30, 40)
+#define GRAPH_BOTTOM_INSET PBL_IF_RECT_ELSE(50, 60)
 #define GRAPH_HORIZONTAL_INSET PBL_IF_RECT_ELSE(0, 18)
 #define GRAPH_AXIS_HEIGHT 20
 #define GRAPH_NUMBER_OF_BARS 9
@@ -110,7 +110,8 @@ static void prv_render_bars(GContext *ctx, GRect bounds, uint16_t click_count) {
   int hrs = avg_value % SEC_IN_DAY / SEC_IN_HR;
   char buff[16];
   snprintf(buff, sizeof(buff), "Avg: %dd %dh", days, hrs);
-  GRect txt_bounds = GRect(0, graph_bounds.origin.y + graph_bounds.size.h + 2, bounds.size.w, 25);
+  GRect txt_bounds = GRect(0, graph_bounds.origin.y + graph_bounds.size.h + 2 + GRAPH_AXIS_HEIGHT,
+    bounds.size.w, 25);
   graphics_context_set_text_color(ctx, GColorBlack);
   graphics_draw_text(ctx, buff, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), txt_bounds,
     GTextOverflowModeFill, GTextAlignmentCenter, NULL);
@@ -120,7 +121,7 @@ static void prv_render_bars(GContext *ctx, GRect bounds, uint16_t click_count) {
 static void prv_render_axis(GContext *ctx, GRect bounds) {
   // reshape bounds
   GRect axis_bounds = bounds;
-  axis_bounds.origin.y = axis_bounds.size.h - GRAPH_BOTTOM_INSET - GRAPH_AXIS_HEIGHT;
+  axis_bounds.origin.y = axis_bounds.size.h - GRAPH_BOTTOM_INSET;
   axis_bounds.size.h = GRAPH_AXIS_HEIGHT;
   // draw background
   graphics_context_set_fill_color(ctx, GColorWhite);

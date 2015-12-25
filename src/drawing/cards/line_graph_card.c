@@ -16,7 +16,7 @@
 #define TEXT_BORDER_TOP PBL_IF_RECT_ELSE(3, 10)
 #define GRAPH_STROKE_WIDTH 2
 #define GRAPH_TOP_INSET PBL_IF_RECT_ELSE(40, 45)
-#define GRAPH_BOTTOM_INSET PBL_IF_RECT_ELSE(30, 35)
+#define GRAPH_BOTTOM_INSET PBL_IF_RECT_ELSE(50, 55)
 #define GRAPH_HORIZONTAL_INSET PBL_IF_RECT_ELSE(0, 18)
 #define GRAPH_AXIS_HEIGHT 20
 #define GRAPH_X_RANGE SEC_IN_WEEK
@@ -79,7 +79,7 @@ static void prv_render_line(GContext *ctx, GRect bounds) {
 static void prv_render_axis(GContext *ctx, GRect bounds) {
   // reshape bounds
   GRect axis_bounds = bounds;
-  axis_bounds.origin.y = axis_bounds.size.h - GRAPH_BOTTOM_INSET - GRAPH_AXIS_HEIGHT;
+  axis_bounds.origin.y = axis_bounds.size.h - GRAPH_BOTTOM_INSET;
   axis_bounds.size.h = GRAPH_AXIS_HEIGHT;
   // draw background
   graphics_context_set_fill_color(ctx, GColorWhite);
