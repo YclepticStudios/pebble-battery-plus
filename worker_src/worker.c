@@ -11,6 +11,8 @@
 #include <pebble_worker.h>
 
 // Constants
+#define PERSIST_VERSION 2
+#define PERSIST_VERSION_KEY 0
 #define PERSIST_DATA_LENGTH 256
 #define STATS_LAST_CHARGE_KEY 997
 #define STATS_RECORD_LIFE_KEY 998
@@ -164,6 +166,8 @@ static void prv_battery_state_change_handler(BatteryChargeState battery_state) {
 
 // First launch prepping
 static void prv_first_launch(void) {
+  // write out persistent storage version
+  persist_write_int(PERSIST_VERSION_KEY, PERSIST_VERSION);
   // write out starting persistent storage location
   persist_write_int(DATA_PERSIST_KEY, DATA_PERSIST_KEY + 1);
   // write out initial guess for stats
@@ -197,6 +201,7 @@ static void prv_initialize(void) {
     // TODO: Maybe invalidate the record run time to prevent cheating by turning off the tracker
   } else {
     prv_first_launch();
+
   }
   // create data logging session
   data_log_session = data_logging_create(DATA_LOGGING_TAG, DATA_LOGGING_BYTE_ARRAY,
