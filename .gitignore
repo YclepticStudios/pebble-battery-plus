@@ -2,4 +2,4 @@ build
 assets
 .lock-waf*
 .idea/
-src/.DS_Store
+.DS_Store

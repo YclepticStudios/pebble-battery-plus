@@ -14,8 +14,8 @@
 
 // Drawing Constants
 #define TEXT_BORDER_TOP PBL_IF_RECT_ELSE(3, 10)
-#define COLOR_RUN_TIME GColorGreen
-#define COLOR_MAX_LIFE GColorBlueMoon
+#define COLOR_RUN_TIME PBL_IF_COLOR_ELSE(GColorGreen, GColorWhite)
+#define COLOR_MAX_LIFE PBL_IF_COLOR_ELSE(GColorBlueMoon, GColorLightGray)
 #define GRAPH_STROKE_WIDTH 3
 #define GRAPH_TOP_INSET PBL_IF_RECT_ELSE(40, 45)
 #define GRAPH_BOTTOM_INSET PBL_IF_RECT_ELSE(50, 60)
