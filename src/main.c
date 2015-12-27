@@ -14,6 +14,7 @@
 
 // Main constants
 #define DATA_LOAD_NUM_DAYS 14
+#define REFRESH_PERIOD_MIN 5
 
 // Main data structure
 static struct {
@@ -49,7 +50,11 @@ static void prv_click_config_handler(void *context) {
 
 // Tick Timer service for updating every minute
 static void prv_tick_timer_service_handler(tm *tick_time, TimeUnits units_changed) {
-  // TODO: Refresh Everything
+  // TODO: Maybe add a clock?
+  // check if at the current refresh period
+  if ((time(NULL) / SEC_IN_MIN) % REFRESH_PERIOD_MIN) {
+    drawing_refresh();
+  }
 }
 
 // Worker message callback

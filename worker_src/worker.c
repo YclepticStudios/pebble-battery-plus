@@ -69,6 +69,8 @@ static void prv_calculate_charge_rate(DataNode new_node) {
   charge_rate = charge_rate * 4 / 5 + ((new_node.epoch - last_node.epoch) / (new_node.percent -
     last_node.percent)) / 5;
   persist_write_int(STATS_CHARGE_RATE_KEY, charge_rate);
+  // TODO: Schedule alerts
+
 }
 
 // Load last data node
