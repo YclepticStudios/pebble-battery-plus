@@ -89,11 +89,6 @@ static void prv_load_last_data_node(void) {
   free(buff);
 }
 
-// Convert old data format to new data format
-static void prv_persist_convert_legacy_data(void) {
-  // TODO: Implement this to maintain old data
-}
-
 // Save a new node to persistent storage
 static void prv_persist_data_node(DataNode node) {
   // get the current persistent key
@@ -128,6 +123,20 @@ static void prv_persist_data_node(DataNode node) {
   free(buff);
 }
 
+// Process a DataNode
+static void prv_process_data_node(DataNode node) {
+  // update statistics
+  prv_calculate_charge_rate(node);
+  prv_calculate_record_life(node);
+  prv_calculate_last_charged(node);
+  // persist the data node
+  prv_persist_data_node(node);
+  // log the data from this sample
+  data_logging_log(data_log_session, &node, 1);
+  // set as last node
+  last_node = node;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Callbacks
@@ -146,19 +155,63 @@ static void prv_battery_state_change_handler(BatteryChargeState battery_state) {
     .charging = battery_state.is_charging,
     .plugged = battery_state.is_plugged,
   };
-  // update statistics
-  prv_calculate_charge_rate(node);
-  prv_calculate_record_life(node);
-  prv_calculate_last_charged(node);
-  // persist the data node
-  prv_persist_data_node(node);
-  // log the data from this sample
-  data_logging_log(data_log_session, &node, 1);
-  // set as last node
-  last_node = node;
+  // process data node
+  prv_process_data_node(node);
   // send message to foreground to refresh data
   AppWorkerMessage msg_data = { .data0 = 0 };
   app_worker_send_message(0, &msg_data);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Legacy Data Migration
+//
+
+// data constants
+#define LEGACY_PERSIST_DATA 100
+#define LEGACY_PERSIST_DATA_LENGTH 24 // must be multiple of 4
+#define LEGACY_DATA_SIZE 100
+#define LEGACY_EPOCH_OFFSET 1420070400
+
+// Convert old data format to new data format
+static void prv_persist_convert_legacy_data(void) {
+  // get some values
+  uint32_t myData[LEGACY_DATA_SIZE];
+  uint8_t *ptr = (uint8_t*)&myData;
+  uint16_t step = LEGACY_PERSIST_DATA_LENGTH, size = sizeof(myData), Pers_Val = LEGACY_PERSIST_DATA;
+  // load myIndex and myCount
+  uint16_t myIndex = (uint16_t)persist_read_int(Pers_Val);
+  persist_delete(Pers_Val++);
+  uint16_t myCount = (uint16_t)persist_read_int(Pers_Val);
+  persist_delete(Pers_Val++);
+  int32_t Stat_RcdLif = persist_read_int(Pers_Val);
+  persist_delete(Pers_Val++);
+  // read the array in several pieces
+  for (uint16_t delta = 0; delta < size; delta += step){
+    persist_read_data(Pers_Val, ptr + delta,
+      (delta + step < size) ? step : (size % step));
+    persist_delete(Pers_Val++);
+  }
+  // send data to new code for processing
+  int16_t idx = -1;
+  if (myCount >= LEGACY_DATA_SIZE) {
+    idx = myIndex - 1;
+  }
+  DataNode node;
+  // loop through data
+  for (uint16_t ii = 0; ii < 999; ii++){
+    // index
+    if (++idx >= myCount && myCount >= LEGACY_DATA_SIZE) idx = 0;
+    else if (idx >= myCount || (idx == myIndex && ii > 0)) break;
+    // unpack data point
+    uint32_t val = myData[idx];
+    node.epoch = ((val / 44) * 60) + LEGACY_EPOCH_OFFSET;
+    node.percent = ((val %= 44) / 4) * 10;
+    node.charging = ((val %= 4) / 2);
+    node.plugged = (val %= 2);
+    // process data node
+    prv_process_data_node(node);
+  }
 }
 
 
@@ -191,8 +244,6 @@ static void prv_first_launch(void) {
   persist_write_int(STATS_RECORD_LIFE_KEY, 0);
   // set dummy last_node in an impossible configuration to ensure a battery update call
   last_node = (DataNode) { .epoch = time(NULL), .percent = 0, .charging = true, .plugged = false };
-  // initialize starting data point
-  prv_battery_state_change_handler(battery_state_service_peek());
 }
 
 // Initialize
@@ -204,7 +255,18 @@ static void prv_initialize(void) {
     // load most recent node
     prv_load_last_data_node();
   } else {
+    // prep for first launch
     prv_first_launch();
+    // migrate legacy data if updating
+    if (persist_exists(LEGACY_PERSIST_DATA)) {
+      prv_persist_convert_legacy_data();
+      // send message to foreground to refresh data
+      AppWorkerMessage msg_data = { .data0 = 0 };
+      app_worker_send_message(0, &msg_data);
+    } else {
+      // else initialize starting data point
+      prv_battery_state_change_handler(battery_state_service_peek());
+    }
   }
   // create data logging session
   data_log_session = data_logging_create(DATA_LOGGING_TAG, DATA_LOGGING_BYTE_ARRAY,
