@@ -45,8 +45,13 @@ static void prv_render_line(GContext *ctx, GRect bounds, int32_t graph_x_range) 
   int32_t node_epoch;
   uint8_t node_percent;
   int32_t cur_epoch = time(NULL);
-  GPoint data_points[data_get_battery_data_point_count() + 2];
-  while (data_get_battery_data_point(index, &node_epoch, &node_percent)) {
+  GPoint data_points[data_get_battery_data_point_count() + 3];
+  // add data point for current estimated battery percent so graph reaches right edge of screen
+  data_points[index].x = graph_bounds.origin.x + graph_bounds.size.w;
+  data_points[index].y = graph_bounds.origin.y + graph_bounds.size.h -
+    graph_bounds.size.h * data_get_battery_percent() / GRAPH_Y_RANGE;
+  index++;
+  while (data_get_battery_data_point(index - 1, &node_epoch, &node_percent)) {
     // calculate screen location
     data_points[index].x = graph_bounds.origin.x + graph_bounds.size.w -
       graph_bounds.size.w * (cur_epoch - node_epoch) / graph_x_range;
