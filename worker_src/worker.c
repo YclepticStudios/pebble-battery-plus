@@ -184,10 +184,10 @@ static void prv_persist_convert_legacy_data(void) {
   persist_delete(Pers_Val++);
   uint16_t myCount = (uint16_t)persist_read_int(Pers_Val);
   persist_delete(Pers_Val++);
-  int32_t Stat_RcdLif = persist_read_int(Pers_Val);
+  int32_t myRecord = persist_read_int(Pers_Val);
   persist_delete(Pers_Val++);
   // read the array in several pieces
-  for (uint16_t delta = 0; delta < size; delta += step){
+  for (uint16_t delta = 0; delta < size; delta += step) {
     persist_read_data(Pers_Val, ptr + delta,
       (delta + step < size) ? step : (size % step));
     persist_delete(Pers_Val++);
@@ -195,13 +195,14 @@ static void prv_persist_convert_legacy_data(void) {
   // send data to new code for processing
   int16_t idx = -1;
   if (myCount >= LEGACY_DATA_SIZE) {
-    idx = myIndex - 1;
+    idx = myIndex;
   }
   DataNode node;
   // loop through data
-  for (uint16_t ii = 0; ii < 999; ii++){
+  for (uint16_t ii = 0; ii < 999; ii++) {
     // index
-    if (++idx >= myCount && myCount >= LEGACY_DATA_SIZE) idx = 0;
+    idx++;
+    if (idx >= myCount && myCount >= LEGACY_DATA_SIZE) idx = 0;
     else if (idx >= myCount || (idx == myIndex && ii > 0)) break;
     // unpack data point
     uint32_t val = myData[idx];
