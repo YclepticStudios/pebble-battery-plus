@@ -33,7 +33,8 @@ typedef struct {
 DataLoggingSessionRef data_log_session;
 
 // Last battery state node
-DataNode last_node;
+static bool last_node_is_valid = false;
+static DataNode last_node;
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -63,7 +64,8 @@ static void prv_calculate_record_life(DataNode new_node) {
 // Calculate current estimated charge rate (for predictions)
 static void prv_calculate_charge_rate(DataNode new_node) {
   // don't calculate under inaccurate situations
-  if (last_node.percent <= new_node.percent || last_node.charging || new_node.charging) { return; }
+  if (!last_node_is_valid || last_node.percent <= new_node.percent || last_node.charging ||
+    new_node.charging) { return; }
   // calculate seconds per percent between two nodes and add to exponential moving average
   int32_t charge_rate = persist_read_int(STATS_CHARGE_RATE_KEY);
   charge_rate = charge_rate * 4 / 5 + ((new_node.epoch - last_node.epoch) / (new_node.percent -
@@ -75,8 +77,6 @@ static void prv_calculate_charge_rate(DataNode new_node) {
 
 // Load last data node
 static void prv_load_last_data_node(void) {
-  // give dummy value in case of failure
-  last_node = (DataNode) { .epoch = time(NULL), .percent = 0, .charging = true, .plugged = false };
   // check for data
   uint32_t persist_key = persist_read_int(DATA_PERSIST_KEY);
   if (!persist_exists(persist_key)) { return; }
@@ -135,6 +135,8 @@ static void prv_process_data_node(DataNode node) {
   data_logging_log(data_log_session, &node, 1);
   // set as last node
   last_node = node;
+  // only set last node to be valid when it is actual data from a known time
+  last_node_is_valid = true;
 }
 
 
@@ -243,8 +245,6 @@ static void prv_first_launch(void) {
   persist_write_int(STATS_CHARGE_RATE_KEY, charge_rate);
   persist_write_int(STATS_LAST_CHARGE_KEY, time(NULL));
   persist_write_int(STATS_RECORD_LIFE_KEY, 0);
-  // set dummy last_node in an impossible configuration to ensure a battery update call
-  last_node = (DataNode) { .epoch = time(NULL), .percent = 0, .charging = true, .plugged = false };
 }
 
 // Initialize
