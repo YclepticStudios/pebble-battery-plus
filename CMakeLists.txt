@@ -12,4 +12,4 @@ FILE(GLOB HEADERS
 )
 
 INCLUDE_DIRECTORIES(~/Development/Pebble/Resources/SDKs/PebbleSDK-3.6.2/Pebble/chalk/include)
-ADD_EXECUTABLE(Status++ ${SOURCE} ${HEADERS} src)
+ADD_EXECUTABLE(Status++ ${SOURCE} ${HEADERS} src src/menu.c src/menu.h)

@@ -10,6 +10,7 @@
 #include <pebble.h>
 #include "data.h"
 #include "drawing/drawing.h"
+#include "menu.h"
 #include "utility.h"
 
 // Main constants
@@ -36,6 +37,11 @@ void select_single_click_handler(ClickRecognizerRef recognizer, void *context) {
   drawing_select_click();
 }
 
+// Select long click handler
+void select_long_click_handler(ClickRecognizerRef recognizer, void *context) {
+  menu_show();
+}
+
 // Down click handler
 void down_single_click_handler(ClickRecognizerRef recognizer, void *context) {
   drawing_select_next_card(false);
@@ -45,6 +51,7 @@ void down_single_click_handler(ClickRecognizerRef recognizer, void *context) {
 static void prv_click_config_handler(void *context) {
   window_single_click_subscribe(BUTTON_ID_UP, up_single_click_handler);
   window_single_click_subscribe(BUTTON_ID_SELECT, select_single_click_handler);
+  window_long_click_subscribe(BUTTON_ID_SELECT, 500, select_long_click_handler, NULL);
   window_single_click_subscribe(BUTTON_ID_DOWN, down_single_click_handler);
 }
 
@@ -84,6 +91,8 @@ void prv_initialize(void) {
   window_stack_push(main_data.window, true);
   // initialize drawing layers
   drawing_initialize(window_root);
+  // initialize action menu
+  menu_initialize();
   // subscribe to services
   app_worker_message_subscribe(prv_worker_message_handler);
   tick_timer_service_subscribe(MINUTE_UNIT, prv_tick_timer_service_handler);
@@ -95,6 +104,7 @@ static void prv_terminate(void) {
   app_worker_message_unsubscribe();
   tick_timer_service_unsubscribe();
   // destroy
+  menu_terminate();
   drawing_terminate();
   window_destroy(main_data.window);
   // unload data
