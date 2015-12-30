@@ -16,6 +16,7 @@
 // Main constants
 #define DATA_LOAD_NUM_DAYS 14
 #define REFRESH_PERIOD_MIN 5
+#define CLICK_LONG_PRESS_DURATION 500
 
 // Main data structure
 static struct {
@@ -32,14 +33,21 @@ void up_single_click_handler(ClickRecognizerRef recognizer, void *context) {
   drawing_select_next_card(true);
 }
 
-// Select click handler
-void select_single_click_handler(ClickRecognizerRef recognizer, void *context) {
+// Select down click handler
+void select_click_down_handler(ClickRecognizerRef recognizer, void *context) {
   drawing_select_click();
+  drawing_set_action_menu_dot(true);
+}
+
+// Select up click handler
+void select_click_up_handler(ClickRecognizerRef recognizer, void *context) {
+  drawing_set_action_menu_dot(false);
 }
 
 // Select long click handler
 void select_long_click_handler(ClickRecognizerRef recognizer, void *context) {
   menu_show();
+  drawing_set_action_menu_dot(false);
 }
 
 // Down click handler
@@ -50,8 +58,10 @@ void down_single_click_handler(ClickRecognizerRef recognizer, void *context) {
 // Click configuration callback
 static void prv_click_config_handler(void *context) {
   window_single_click_subscribe(BUTTON_ID_UP, up_single_click_handler);
-  window_single_click_subscribe(BUTTON_ID_SELECT, select_single_click_handler);
-  window_long_click_subscribe(BUTTON_ID_SELECT, 500, select_long_click_handler, NULL);
+  window_raw_click_subscribe(BUTTON_ID_SELECT, select_click_down_handler,
+    select_click_up_handler, NULL);
+  window_long_click_subscribe(BUTTON_ID_SELECT, CLICK_LONG_PRESS_DURATION,
+    select_long_click_handler, NULL);
   window_single_click_subscribe(BUTTON_ID_DOWN, down_single_click_handler);
 }
 

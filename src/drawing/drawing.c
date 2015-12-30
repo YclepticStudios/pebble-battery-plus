@@ -13,18 +13,25 @@
 #include "../animation/animation.h"
 #include "card.h"
 #include "cards/card_render.h"
+#include "../utility.h"
 
 // Constants
 #define CARD_SLIDE_ANIMATION_DURATION 100
 #define CARD_BOUNCE_ANIMATION_DURATION 70
 #define CARD_BOUNCE_HEIGHT 10
+#define ACTION_DOT_RADIUS 12
+#define ACTION_DOT_OPEN_INSET 6
+#define ACTION_DOT_CLOSE_DURATION 150
 
 // Main data struct
 static struct {
   Layer     *card_layer[DRAWING_CARD_COUNT];  //< An array of pointers to the base card layers
+  Layer     *top_layer;                       //< Topmost layer for drawing any extra content on
   GRect     window_bounds;                    //< The dimensions of the window
   int32_t   scroll_offset_ani;                //< The true offset of the 0'th card
   int32_t   scroll_offset;                    //< The final offset of the 0'th card after animation
+  int32_t   action_dot_inset_ani;             //< The inset from the left of the screen for the
+  // dot
 } drawing_data;
 
 
@@ -43,6 +50,19 @@ static void prv_position_cards(void) {
   }
 }
 
+// Topmost layer update proc handler
+static void prv_top_layer_update_proc_handler(Layer *layer, GContext *ctx) {
+  // get bounds
+  GRect bounds = layer_get_bounds(layer);
+  GPoint center;
+  center.x = bounds.size.w + ACTION_DOT_RADIUS - drawing_data.action_dot_inset_ani;
+  center.y = bounds.size.h / 2;
+  // draw action dot
+  graphics_context_set_antialiased(ctx, true);
+  graphics_context_set_fill_color(ctx, GColorBlack);
+  graphics_fill_circle(ctx, center, ACTION_DOT_RADIUS);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Callbacks
@@ -51,6 +71,8 @@ static void prv_position_cards(void) {
 static void prv_animation_handler(void) {
   // update card positions
   prv_position_cards();
+  // redraw topmost layer
+  layer_mark_dirty(drawing_data.top_layer);
 }
 
 
@@ -63,6 +85,17 @@ void drawing_refresh(void) {
   for (uint8_t ii = 0; ii < DRAWING_CARD_COUNT; ii++) {
     card_refresh(drawing_data.card_layer[ii]);
   }
+}
+
+// Set the visible state of the action menu dot
+void drawing_set_action_menu_dot(bool visible) {
+  if (visible) {
+    drawing_data.action_dot_inset_ani = ACTION_DOT_OPEN_INSET;
+  } else {
+    animation_int32_start(&drawing_data.action_dot_inset_ani, 0,
+      ACTION_DOT_CLOSE_DURATION, 0, CurveSinEaseOut);
+  }
+  layer_mark_dirty(drawing_data.top_layer);
 }
 
 // Select click handler for current card
@@ -106,12 +139,19 @@ void drawing_initialize(Layer *window_layer) {
   for (uint8_t ii = 0; ii < DRAWING_CARD_COUNT; ii++) {
     layer_add_child(window_layer, drawing_data.card_layer[ii]);
   }
+  // create topmost layer
+  drawing_data.top_layer = layer_create(drawing_data.window_bounds);
+  ASSERT(drawing_data.top_layer);
+  layer_set_update_proc(drawing_data.top_layer, prv_top_layer_update_proc_handler);
+  layer_add_child(window_layer, drawing_data.top_layer);
   // register animation handler
   animation_register_update_callback(prv_animation_handler);
 }
 
 // Terminate all cards and free memory
 void drawing_terminate(void) {
+  // destroy topmost layer
+  layer_destroy(drawing_data.top_layer);
   // destroy cards
   for (uint8_t ii = 0; ii < DRAWING_CARD_COUNT; ii++) {
     card_terminate(drawing_data.card_layer[ii]);

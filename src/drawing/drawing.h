@@ -19,6 +19,10 @@
 //! Refresh all visible elements
 void drawing_refresh(void);
 
+//! Set the visible state of the action menu dot
+//! @param visible The state the action menu dot should be set to
+void drawing_set_action_menu_dot(bool visible);
+
 //! Select click handler for current card
 void drawing_select_click(void);
 
