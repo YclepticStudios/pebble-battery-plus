@@ -300,16 +300,22 @@ void data_unload(void) {
 // Print the data to the console
 void data_print_csv(void) {
   // print header
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Epoch,\tPercent,\tCharging,\tPlugged,");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "======================================");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Battery+ by Ycleptic Studios");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Raw Data Export, all times in UTC epoch format");
+  // print stats
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "------------- Statistics -------------");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Last Charged: %d", (int)prv_last_charged);
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Record Life: %d", (int)prv_record_life);
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Rate: %d", (int)prv_charge_rate);
   // print body
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "------------- Raw Data -------------");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Epoch,\t\t%%,\tCharge,\tPlugged,");
   DataNode *cur_node = head_node;
   while (cur_node) {
     app_log(APP_LOG_LEVEL_INFO, "", 0, "%d,\t%d,\t%d,\t%d,", cur_node->epoch, cur_node->percent,
       cur_node->charging, cur_node->plugged);
     cur_node = cur_node->next;
   }
-  // print charge rate
-  printf("\nLast Charged: %d", (int)prv_last_charged);
-  printf("\nRecord Life: %d", (int)prv_record_life);
-  printf("\nCharge Rate: %d", (int)prv_charge_rate);
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "=====================================");
 }
