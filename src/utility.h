@@ -9,8 +9,13 @@
 //! @date August 29, 2015
 //! @bugs No known bugs
 
+//! This file is included in both the main program and the worker, so it needs different includes
 #pragma once
+#ifdef PEBBLE_BACKGROUND_WORKER
+#include <pebble_worker.h>
+#else
 #include <pebble.h>
+#endif
 
 // Time Constants
 #define SEC_IN_MIN 60
@@ -20,6 +25,7 @@
 #define MIN_IN_HR 60
 #define MIN_IN_DAY 1440
 #define DAY_IN_YEAR 365
+
 
 //! Terminate program if null pointer
 //! @param ptr The pointer to check for null

@@ -11,9 +11,11 @@
 
 #pragma once
 #include <pebble.h>
+#include "data/data_library.h"
 
 //! Show the action menu
-void menu_show(void);
+//! @param data_library A pointer to the main DataLibrary from which to get information
+void menu_show(DataLibrary *data_library);
 
 //! Initialize action menu
 void menu_initialize(void);

@@ -23,6 +23,7 @@ typedef struct {
   uint16_t            click_count;            //< Number of select click events on this card
   bool                pending_refresh;        //< If the card needs to be re-rendered into the cache
   CardRenderHandler   render_handler;         //< Function pointer to render specific card
+  DataLibrary         *data_library;          //< Pointer to the main data library
 } CardLayer;
 
 
@@ -127,7 +128,7 @@ static void prv_layer_update_handler(Layer *layer, GContext *ctx) {
     // if centered in screen, render and cache GContext as bitmap
     if (layer_is_screen_aligned) {
       // render card
-      card_layer->render_handler(layer, ctx, card_layer->click_count);
+      card_layer->render_handler(layer, ctx, card_layer->click_count, card_layer->data_library);
       // cache as bitmap
       if (card_layer->bmp_buff) {
         gbitmap_destroy(card_layer->bmp_buff);
@@ -172,7 +173,7 @@ void card_select_click(Layer *layer) {
 
 // Initialize card
 Layer *card_initialize(GRect bounds, GBitmapFormat bmp_format, GColor background_color,
-                       CardRenderHandler render_handler) {
+                       CardRenderHandler render_handler, DataLibrary *data_library) {
   // create base layer with extra data
   Layer *layer = layer_create_with_data(bounds, sizeof(CardLayer));
   ASSERT(layer);
@@ -184,6 +185,7 @@ Layer *card_initialize(GRect bounds, GBitmapFormat bmp_format, GColor background
   card_layer->click_count = 0;
   card_layer->pending_refresh = true;
   card_layer->render_handler = render_handler;
+  card_layer->data_library = data_library;
   // return layer pointer
   return layer;
 }

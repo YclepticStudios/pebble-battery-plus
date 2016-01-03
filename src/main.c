@@ -8,7 +8,7 @@
 // @bugs No known bugs
 
 #include <pebble.h>
-#include "data.h"
+#include "data/data_library.h"
 #include "drawing/drawing.h"
 #include "menu.h"
 #include "utility.h"
@@ -20,7 +20,8 @@
 
 // Main data structure
 static struct {
-  Window      *window;            //< The base window for the application
+  Window        *window;          //< The base window for the application
+  DataLibrary   *data_library;    //< The main data pointer for all data functions
 } main_data;
 
 
@@ -46,7 +47,7 @@ void select_click_up_handler(ClickRecognizerRef recognizer, void *context) {
 
 // Select long click handler
 void select_long_click_handler(ClickRecognizerRef recognizer, void *context) {
-  menu_show();
+  menu_show(main_data.data_library);
   drawing_set_action_menu_dot(false);
 }
 
@@ -67,7 +68,6 @@ static void prv_click_config_handler(void *context) {
 
 // Tick Timer service for updating every minute
 static void prv_tick_timer_service_handler(tm *tick_time, TimeUnits units_changed) {
-  // TODO: Maybe add a clock?
   // check if at the current refresh period
   if ((time(NULL) / SEC_IN_MIN) % REFRESH_PERIOD_MIN) {
     drawing_refresh();
@@ -77,7 +77,7 @@ static void prv_tick_timer_service_handler(tm *tick_time, TimeUnits units_change
 // Worker message callback
 static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
   // no need to read what is sent, just update the data
-  data_load_past_days(DATA_LOAD_NUM_DAYS);
+  data_reload(main_data.data_library);
   // refresh the screen
   drawing_refresh();
 }
@@ -89,10 +89,10 @@ static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
 
 // Initialize the program
 void prv_initialize(void) {
+  // load data
+  main_data.data_library = data_initialize();
   // start background worker
   app_worker_launch();
-  // load data
-  data_load_past_days(DATA_LOAD_NUM_DAYS);
   // initialize window
   main_data.window = window_create();
   ASSERT(main_data.window);
@@ -100,7 +100,7 @@ void prv_initialize(void) {
   window_set_click_config_provider(main_data.window, prv_click_config_handler);
   window_stack_push(main_data.window, true);
   // initialize drawing layers
-  drawing_initialize(window_root);
+  drawing_initialize(window_root, main_data.data_library);
   // initialize action menu
   menu_initialize();
   // subscribe to services
@@ -118,7 +118,7 @@ static void prv_terminate(void) {
   drawing_terminate();
   window_destroy(main_data.window);
   // unload data
-  data_unload();
+  data_terminate(main_data.data_library);
 }
 
 // Entry point

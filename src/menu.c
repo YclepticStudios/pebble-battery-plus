@@ -10,7 +10,6 @@
 // @bug No known bugs
 
 #include "menu.h"
-#include "data.h"
 
 // Action types
 typedef enum {
@@ -34,7 +33,7 @@ static void prv_action_performed_handler(ActionMenu *action_menu, const ActionMe
   // perform action
   switch (action_type) {
     case ActionTypeDataExport:
-      data_print_csv();
+      data_print_csv(context);
       break;
   }
 }
@@ -45,7 +44,7 @@ static void prv_action_performed_handler(ActionMenu *action_menu, const ActionMe
 //
 
 //! Show the action menu
-void menu_show(void) {
+void menu_show(DataLibrary *data_library) {
   // configure action menu
   ActionMenuConfig config = (ActionMenuConfig) {
     .root_level = s_root_level,
@@ -53,14 +52,15 @@ void menu_show(void) {
       .background = PBL_IF_COLOR_ELSE(GColorGreen, GColorWhite),
       .foreground = GColorBlack,
     },
-    .align = ActionMenuAlignCenter
+    .align = ActionMenuAlignCenter,
+    .context = data_library
   };
   // show the ActionMenu
   s_action_menu = action_menu_open(&config);
 }
 
 //! Initialize action menu
-void menu_initialize(void) {
+void menu_initialize() {
   // create root level
   s_root_level = action_menu_level_create(1);
   // create data level

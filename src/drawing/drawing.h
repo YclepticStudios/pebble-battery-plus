@@ -11,6 +11,7 @@
 
 #pragma once
 #include <pebble.h>
+#include "../data/data_library.h"
 
 // Constants
 #define DRAWING_CARD_COUNT 3
@@ -32,7 +33,8 @@ void drawing_select_next_card(bool up);
 
 //! Initialize all cards and add to window layer
 //! @param window_layer The base layer of the window
-void drawing_initialize(Layer *window_layer);
+//! @param data_library Pointer to the main data library from which to get information
+void drawing_initialize(Layer *window_layer, DataLibrary *data_library);
 
 //! Terminate all cards and free memory
 void drawing_terminate(void);

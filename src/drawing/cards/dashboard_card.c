@@ -9,7 +9,8 @@
 // @bugs No known bugs
 
 #include "card_render.h"
-#include "../../data.h"
+#include "../../data/data_library.h"
+#include "../../utility.h"
 
 // Constants
 #define COLOR_RING_LOW PBL_IF_COLOR_ELSE(GColorRed, GColorLightGray)
@@ -27,10 +28,10 @@
 //
 
 // Render battery percent text
-static void prv_render_battery_percent(GContext *ctx, GRect bounds) {
+static void prv_render_battery_percent(GContext *ctx, GRect bounds, DataLibrary *data_library) {
   // get text
   char buff[4];
-  snprintf(buff, sizeof(buff), "%d", data_get_battery_percent());
+  snprintf(buff, sizeof(buff), "%d", data_get_battery_percent(data_library));
   // get bounds
   GRect txt_bounds = grect_inset(bounds, GEdgeInsets1(RING_WIDTH));
   txt_bounds.size.h /= 2;
@@ -45,11 +46,12 @@ static void prv_render_battery_percent(GContext *ctx, GRect bounds) {
 }
 
 // Render selected text showing times for colors on ring
-static void prv_render_selected_text(GContext *ctx, GRect bounds, uint16_t click_count) {
+static void prv_render_selected_text(GContext *ctx, GRect bounds, uint16_t click_count,
+                                     DataLibrary *data_library) {
   // get display mode
   char *hint_text;
   GColor selection_color;
-  int32_t selection_value = data_get_life_remaining();
+  int32_t selection_value = data_get_life_remaining(data_library);
   uint16_t tmp_max_modes = 2 + (selection_value > DATA_LEVEL_MED_THRESH_SEC) +
                        (selection_value > DATA_LEVEL_LOW_THRESH_SEC);
   uint16_t cur_mode = click_count % tmp_max_modes;
@@ -60,7 +62,7 @@ static void prv_render_selected_text(GContext *ctx, GRect bounds, uint16_t click
   } else if (cur_mode == 1) {
     hint_text = "Run Time";
     selection_color = COLOR_RING_EMPTY;
-    selection_value = data_get_run_time();
+    selection_value = data_get_run_time(data_library);
   } else if (cur_mode == 2) {
     hint_text = "Low Alert";
     selection_color = COLOR_RING_LOW;
@@ -103,12 +105,12 @@ static void prv_render_selected_text(GContext *ctx, GRect bounds, uint16_t click
 }
 
 // Render progress ring
-static void prv_render_ring(GContext *ctx, GRect bounds) {
+static void prv_render_ring(GContext *ctx, GRect bounds, DataLibrary *data_library) {
   // calculate angles for ring color change positions
-  int32_t max_life_sec = data_get_max_life();
+  int32_t max_life_sec = data_get_max_life(data_library);
   int32_t angle_low = TRIG_MAX_ANGLE * DATA_LEVEL_LOW_THRESH_SEC / max_life_sec;
   int32_t angle_med = (int64_t)TRIG_MAX_ANGLE * DATA_LEVEL_MED_THRESH_SEC / max_life_sec;
-  int32_t angle_level = TRIG_MAX_ANGLE * data_get_battery_percent() / 100;
+  int32_t angle_level = TRIG_MAX_ANGLE * data_get_battery_percent(data_library) / 100;
   angle_low = angle_level < angle_low ? angle_level : angle_low;
   angle_med = angle_level < angle_med ? angle_level : angle_med;
   // calculate outer ring bounds
@@ -154,16 +156,17 @@ static void prv_render_ring(GContext *ctx, GRect bounds) {
 //
 
 // Rendering function for dashboard card
-void card_render_dashboard(Layer *layer, GContext *ctx, uint16_t click_count) {
+void card_render_dashboard(Layer *layer, GContext *ctx, uint16_t click_count,
+                           DataLibrary *data_library) {
   // turn off anti-aliasing
   graphics_context_set_antialiased(ctx, false);
   // get bounds
   GRect bounds = layer_get_bounds(layer);
   bounds.origin = GPointZero;
   // render to graphics context
-  prv_render_ring(ctx, bounds);
+  prv_render_ring(ctx, bounds, data_library);
   // render battery percent text
-  prv_render_battery_percent(ctx, bounds);
+  prv_render_battery_percent(ctx, bounds, data_library);
   // render selected text
-  prv_render_selected_text(ctx, bounds, click_count);
+  prv_render_selected_text(ctx, bounds, click_count, data_library);
 }

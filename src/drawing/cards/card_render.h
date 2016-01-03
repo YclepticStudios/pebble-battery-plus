@@ -11,6 +11,7 @@
 
 #pragma once
 #include <pebble.h>
+#include "../../data/data_library.h"
 
 // Constants
 #define CARD_BACK_COLOR_DASHBOARD GColorLightGray
@@ -40,16 +41,22 @@ void card_render_rich_text(GContext *ctx, GRect bounds, uint8_t array_length,
 //! @param layer The base layer for this card
 //! @param ctx The graphics context which will be rendered on
 //! @param click_count Number of select click events on this card
-void card_render_dashboard(Layer *layer, GContext *ctx, uint16_t click_count);
+//! @param data_library A pointer to the main data library
+void card_render_dashboard(Layer *layer, GContext *ctx, uint16_t click_count,
+                           DataLibrary *data_library);
 
 //! Rendering function for line graph card
 //! @param layer The base layer for this card
 //! @param ctx The graphics context which will be rendered on
 //! @param click_count Number of select click events on this card
-void card_render_line_graph(Layer *layer, GContext *ctx, uint16_t click_count);
+//! @param data_library A pointer to the main data library
+void card_render_line_graph(Layer *layer, GContext *ctx, uint16_t click_count,
+                            DataLibrary *data_library);
 
 //! Rendering function for bar graph card
 //! @param layer The base layer for this card
 //! @param ctx The graphics context which will be rendered on
 //! @param click_count Number of select click events on this card
-void card_render_bar_graph(Layer *layer, GContext *ctx, uint16_t click_count);
+//! @param data_library A pointer to the main data library
+void card_render_bar_graph(Layer *layer, GContext *ctx, uint16_t click_count,
+                           DataLibrary *data_library);
