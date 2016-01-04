@@ -197,7 +197,9 @@ static bool prv_persist_read_next_data_block(DataLibrary *data_library) {
   // read the data from persistent storage
   DataStateBlock data_state_block;
   persist_read_data(persist_key, &data_state_block, sizeof(DataStateBlock));
-  data_library->charge_rate = data_state_block.initial_charge_rate;
+  if (data_library->loaded_data_block_count == 0) {
+    data_library->charge_rate = data_state_block.initial_charge_rate;
+  }
   // loop over data
   DataNode *tmp_node;
   for (uint8_t ii = 0, jj = data_state_block.data_state_count - 1;
@@ -233,10 +235,6 @@ static void prv_persist_write_data_state(DataLibrary *data_library, DataState da
     persist_read_data(persist_key, &data_state_block, sizeof(DataStateBlock));
   }
   data_state_block.data_states[data_state_block.data_state_count++] = data_state;
-  // check if DataStateBlock is full and index to next key
-  if (data_state_block.data_state_count >= DATA_BLOCK_STATE_COUNT) {
-    persist_write_int(PERSIST_DATA_KEY, ++persist_key);
-  }
   // get the oldest existing key
   uint32_t old_persist_key = persist_key;
   while (old_persist_key > PERSIST_DATA_KEY && persist_exists(old_persist_key - 1)) {
@@ -249,6 +247,10 @@ static void prv_persist_write_data_state(DataLibrary *data_library, DataState da
   while (bytes_written < sizeof(DataStateBlock) && old_persist_key + 3 < persist_key) {
     persist_delete(old_persist_key++);
     bytes_written = persist_write_data(persist_key, &data_state_block, sizeof(DataStateBlock));
+  }
+  // check if DataStateBlock is full and index to next key
+  if (data_state_block.data_state_count >= DATA_BLOCK_STATE_COUNT) {
+    persist_write_int(PERSIST_DATA_KEY, ++persist_key);
   }
 }
 
@@ -279,11 +281,68 @@ static void prv_process_data_state(DataLibrary *data_library, DataState data_sta
   }
 }
 
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// First Time Launch
+//
+
+// data constants
+#define LEGACY_PERSIST_DATA 100
+#define LEGACY_PERSIST_DATA_LENGTH 24 // must be multiple of 4
+#define LEGACY_DATA_SIZE 100
+#define LEGACY_EPOCH_OFFSET 1420070400
+
+// Convert old data format to new data format
+static void prv_persist_convert_legacy_data(DataLibrary *data_library) {
+  // get some values
+  uint32_t myData[LEGACY_DATA_SIZE];
+  uint8_t *ptr = (uint8_t*)&myData;
+  uint16_t step = LEGACY_PERSIST_DATA_LENGTH, size = sizeof(myData), Pers_Val = LEGACY_PERSIST_DATA;
+  // load myIndex and myCount
+  uint16_t myIndex = (uint16_t)persist_read_int(Pers_Val);
+  persist_delete(Pers_Val++);
+  uint16_t myCount = (uint16_t)persist_read_int(Pers_Val);
+  persist_delete(Pers_Val++);
+  int32_t myRecord = persist_read_int(Pers_Val);
+  persist_delete(Pers_Val++);
+  // read the array in several pieces
+  for (uint16_t delta = 0; delta < size; delta += step) {
+    persist_read_data(Pers_Val, ptr + delta,
+      (delta + step < size) ? step : (size % step));
+    persist_delete(Pers_Val++);
+  }
+  // send data to new code for processing
+  int16_t idx = -1;
+  if (myCount >= LEGACY_DATA_SIZE) {
+    idx = myIndex;
+  }
+  DataState data_state;
+  // loop through data
+  for (uint16_t ii = 0; ii < 999; ii++) {
+    // index
+    idx++;
+    if (idx >= myCount && myCount >= LEGACY_DATA_SIZE) idx = 0;
+    else if (idx >= myCount || (idx == myIndex && ii > 0)) break;
+    // unpack data point
+    uint32_t val = myData[idx];
+    data_state.epoch = ((val / 44) * 60) + LEGACY_EPOCH_OFFSET - DATA_EPOCH_OFFSET;
+    data_state.percent = ((val %= 44) / 4) * 10;
+    data_state.charging = ((val %= 4) / 2);
+    data_state.plugged = (val % 2);
+    data_state.contiguous = true;
+    // process data node
+    prv_process_data_state(data_library, data_state);
+  }
+}
+
 // Initialize to default values on first launch
 static void prv_first_launch_prep(DataLibrary *data_library) {
-  // TODO: Port legacy data (treat all as contiguous)
   // write out starting persistent storage location
   persist_write_int(PERSIST_DATA_KEY, PERSIST_DATA_KEY + 1);
+  // port any legacy data
+  if (persist_exists(LEGACY_PERSIST_DATA)) {
+    prv_persist_convert_legacy_data(data_library);
+  }
   // write out the current battery state
   data_process_new_battery_state(data_library, battery_state_service_peek());
 }
