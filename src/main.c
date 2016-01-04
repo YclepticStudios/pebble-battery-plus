@@ -14,7 +14,6 @@
 #include "utility.h"
 
 // Main constants
-#define DATA_LOAD_NUM_DAYS 14
 #define REFRESH_PERIOD_MIN 5
 #define CLICK_LONG_PRESS_DURATION 500
 

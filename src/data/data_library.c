@@ -16,6 +16,7 @@
 #define DATA_VERSION 0                //< The current persistent storage format version
 #define DATA_BLOCK_STATE_COUNT 50     //< The number of DataStates that fit in one persistent write
 #define DATA_EPOCH_OFFSET 1420070400  //< Jan 1, 2015 at 0:00:00, reduces size when saving data
+#define LINKED_LIST_MAX_SIZE DATA_BLOCK_STATE_COUNT * 3 //< Max size of linked list before moving
 #define PERSIST_DATA_KEY 1000         //< The persistent storage key where the data write starts
 #define PERSIST_RECORD_LIFE_KEY 999   //< The persistent storage key where the record life is stored
 #define DATA_LOGGING_TAG 5155346      //< Tag used to identify data once on phone
@@ -48,41 +49,21 @@ typedef struct DataStateBlock {
 // Main data structure library
 typedef struct DataLibrary {
   int32_t                 charge_rate;              //< The current charge rate in sec per percent
-  uint32_t                node_count;               //< The number of nodes in the linked list
+  uint16_t                node_count;               //< The number of nodes in the linked list
+  uint16_t                head_node_index;          //< The index of the head node into the data
   DataNode                *head_node;               //< The head node for linked list, newest first
   bool                    data_is_contiguous;       //< Whether worker was shut off since last pt
-  uint16_t                loaded_data_block_count;  //< The number of DataStateBlocks loaded in RAM
   DataLoggingSessionRef   data_logging_session;     //< Data logging session to send data to phone
 } DataLibrary;
 
 // Function declarations
-// Reads the next DataStateBlock (containing a max of 50 data points) into memory
-static bool prv_persist_read_next_data_block(DataLibrary *data_library);
+// Read data from persistent storage into a linked list
+static void prv_persist_read_data_block(DataLibrary *data_library, uint16_t index);
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Private Functions
 //
-
-// Get a DataNode at a certain index into the linked list, with 0 being most recent
-static DataNode* prv_linked_list_get_data_node(DataLibrary *data_library, uint16_t index) {
-  DataNode *cur_node = data_library->head_node;
-  uint16_t ii = 0;
-  while (cur_node) {
-    // check if node
-    if (index == ii) {
-      return cur_node;
-    }
-    // load more data if next is NULL
-    if (!cur_node->next) {
-      prv_persist_read_next_data_block(data_library);
-    }
-    // index node
-    ii++;
-    cur_node = cur_node->next;
-  }
-  return NULL;
-}
 
 // Add node to start of linked list
 static void prv_linked_list_add_node_start(DataLibrary *data_library, DataNode *node) {
@@ -106,9 +87,9 @@ static void prv_linked_list_add_node_end(DataLibrary *data_library, DataNode *no
   data_library->node_count++;
 }
 
-// Destroy all data points from current node onward (includes current point)
-static void prv_linked_list_destroy(DataLibrary *data_library, DataNode *node) {
-  DataNode *cur_node = node;
+// Destroy all data nodes in linked list
+static void prv_linked_list_destroy(DataLibrary *data_library) {
+  DataNode *cur_node = data_library->head_node;
   DataNode *tmp_node;
   while (cur_node) {
     // index node
@@ -118,6 +99,28 @@ static void prv_linked_list_destroy(DataLibrary *data_library, DataNode *node) {
     free(tmp_node);
     data_library->node_count--;
   }
+}
+
+// Get a DataNode at a certain index into the linked list, with 0 being most recent
+// If the index is outside the current cache, destroy the cache and create a new one
+static DataNode* prv_linked_list_get_node(DataLibrary *data_library, uint16_t index) {
+  // check if outside the currently cached linked list and create new cache
+  if (index < data_library->head_node_index ||
+      index >= data_library->head_node_index + LINKED_LIST_MAX_SIZE) {
+    // read in new data
+    prv_persist_read_data_block(data_library, index);
+  }
+  // loop over nodes and find matching index
+  DataNode *cur_node = data_library->head_node;
+  uint16_t cur_index = data_library->head_node_index;
+  while (cur_node) {
+    if (cur_index == index) {
+      return cur_node;
+    }
+    cur_index++;
+    cur_node = cur_node->next;
+  }
+  return NULL;
 }
 
 // Get the latest data state (returns the current battery value if no nodes)
@@ -130,7 +133,7 @@ static DataState prv_get_current_data_state(DataLibrary *data_library) {
   cur_state.charging = bat_state.is_charging;
   cur_state.plugged = bat_state.is_plugged;
   // get latest existing data point
-  DataNode *cur_node = prv_linked_list_get_data_node(data_library, 0);
+  DataNode *cur_node = prv_linked_list_get_node(data_library, 0);
   // return current state if no last node or not matching with last node
   if (!cur_node || cur_node->state.percent != cur_state.percent ||
     cur_node->state.charging != cur_state.charging ||
@@ -185,40 +188,41 @@ static int32_t prv_calculate_charge_rate(DataState old_state, DataState new_stat
   }
 }
 
-// Reads the next DataStateBlock (containing a max of 50 data points) into memory
-// Reading is done in blocks, consecutively, from most recent to oldest
-// Returns the success of the reading
-static bool prv_persist_read_next_data_block(DataLibrary *data_library) {
-  // get location and size of data and check for valid index
-  uint32_t persist_key = persist_read_int(PERSIST_DATA_KEY) -
-    data_library->loaded_data_block_count;
+// Read data from persistent storage into a linked list
+static void prv_persist_read_data_block(DataLibrary *data_library, uint16_t index) {
+  // prep linked list
+  prv_linked_list_destroy(data_library);
+  data_library->head_node = NULL;
+  data_library->head_node_index = index / DATA_BLOCK_STATE_COUNT * DATA_BLOCK_STATE_COUNT;
+  // get persistent storage key
+  uint32_t persist_key = persist_read_int(PERSIST_DATA_KEY) - index / DATA_BLOCK_STATE_COUNT;
   if (!persist_exists(persist_key)) { persist_key--; }
-  if (persist_key <= PERSIST_DATA_KEY || !persist_exists(persist_key)) { return false; }
-  // read the data from persistent storage
+  // read in several blocks of data
   DataStateBlock data_state_block;
-  persist_read_data(persist_key, &data_state_block, sizeof(DataStateBlock));
-  if (data_library->loaded_data_block_count == 0) {
-    data_library->charge_rate = data_state_block.initial_charge_rate;
-  }
-  // loop over data
-  DataNode *tmp_node;
-  for (uint8_t ii = 0, jj = data_state_block.data_state_count - 1;
-       ii < data_state_block.data_state_count; ii++, jj--) {
-    // add node to linked list
-    tmp_node = MALLOC(sizeof(DataNode));
-    tmp_node->state = data_state_block.data_states[jj];
-    tmp_node->next = NULL;
-    prv_linked_list_add_node_end(data_library, tmp_node);
-    // calculate current charge rate if first block of data
-    if (data_library->loaded_data_block_count == 0 &&
-        ii + 1 < data_state_block.data_state_count) {
-      data_library->charge_rate = prv_calculate_charge_rate(data_state_block.data_states[ii],
-        data_state_block.data_states[ii + 1], data_library->charge_rate);
+  for (uint32_t key = persist_key;
+       key > persist_key - 3 && key > PERSIST_DATA_KEY && persist_exists(key); key--) {
+    // read the data from persistent storage
+    persist_read_data(key, &data_state_block, sizeof(DataStateBlock));
+    // calculate charge rate if most recent data
+    if (index == 0) {
+      data_library->charge_rate = data_state_block.initial_charge_rate;
+    }
+    // loop over data
+    DataNode *tmp_node;
+    for (uint8_t ii = 0, jj = data_state_block.data_state_count - 1;
+         ii < data_state_block.data_state_count; ii++, jj--) {
+      // add node to linked list
+      tmp_node = MALLOC(sizeof(DataNode));
+      tmp_node->state = data_state_block.data_states[jj];
+      tmp_node->next = NULL;
+      prv_linked_list_add_node_end(data_library, tmp_node);
+      // calculate current charge rate if most recent data
+      if (index == 0 && ii + 1 < data_state_block.data_state_count) {
+        data_library->charge_rate = prv_calculate_charge_rate(data_state_block.data_states[ii],
+          data_state_block.data_states[ii + 1], data_library->charge_rate);
+      }
     }
   }
-  // index number of loaded blocks
-  data_library->loaded_data_block_count++;
-  return true;
 }
 
 // Write newest DataState into persistent storage
@@ -258,7 +262,7 @@ static void prv_persist_write_data_state(DataLibrary *data_library, DataState da
 static void prv_process_data_state(DataLibrary *data_library, DataState data_state) {
   // TODO: Calculate record life
   // calculate charge rate
-  DataNode *cur_node = prv_linked_list_get_data_node(data_library, 0);
+  DataNode *cur_node = prv_linked_list_get_node(data_library, 0);
   if (cur_node) {
     data_library->charge_rate = prv_calculate_charge_rate(cur_node->state, data_state,
       data_library->charge_rate);
@@ -268,17 +272,15 @@ static void prv_process_data_state(DataLibrary *data_library, DataState data_sta
   prv_persist_write_data_state(data_library, data_state);
   // send the data to the phone with data logging
   data_logging_log(data_library->data_logging_session, &data_state, 1);
-  // add new node to start of linked list and destroy last one
+  // add new node to start of linked list
   DataNode *tmp_node = MALLOC(sizeof(DataNode));
   tmp_node->state = data_state;
   tmp_node->next = NULL;
   prv_linked_list_add_node_start(data_library, tmp_node);
-  // if too many nodes, destroy last fifty
-  if (data_library->node_count >= 150) {
-    DataNode *last_node = prv_linked_list_get_data_node(data_library,
-      data_library->node_count - 50);
-    prv_linked_list_destroy(data_library, last_node);
-  }
+  // destroy last node
+  tmp_node = prv_linked_list_get_node(data_library, data_library->node_count - 2);
+  free(tmp_node->next);
+  tmp_node->next = NULL;
 }
 
 
@@ -439,7 +441,7 @@ int32_t data_get_max_life(DataLibrary *data_library) {
 bool data_get_data_point(DataLibrary *data_library, uint16_t index, int32_t *epoch,
                                  uint8_t *percent) {
   // get data node
-  DataNode *data_node = prv_linked_list_get_data_node(data_library, index);
+  DataNode *data_node = prv_linked_list_get_node(data_library, index);
   if (data_node) {
     (*epoch) = data_node->state.epoch + DATA_EPOCH_OFFSET;
     (*percent) = data_node->state.percent;
@@ -451,24 +453,15 @@ bool data_get_data_point(DataLibrary *data_library, uint16_t index, int32_t *epo
 
 // Get the number of data points which include the last x number of seconds
 uint16_t data_get_data_point_count_including_seconds(DataLibrary *data_library, int32_t seconds) {
-  time_t end_time = time(NULL) - seconds;
-  DataNode *cur_node = data_library->head_node;
-  uint16_t count = 0;
+  time_t end_time = time(NULL) - seconds - DATA_EPOCH_OFFSET;
+  uint16_t index = 0;
+  DataNode *cur_node = prv_linked_list_get_node(data_library, index);
   while (cur_node) {
-    // index count
-    count++;
-    // check if node
-    if (cur_node->state.epoch + DATA_EPOCH_OFFSET < end_time) {
-      return count;
-    }
-    // load more data if next is NULL
-    if (!cur_node->next) {
-      prv_persist_read_next_data_block(data_library);
-    }
-    // index node
-    cur_node = cur_node->next;
+    index++;
+    if (cur_node->state.epoch < end_time) { break; }
+    cur_node = prv_linked_list_get_node(data_library, index);
   }
-  return count;
+  return index;
 }
 
 // Print the data to the console in CSV format
@@ -479,27 +472,33 @@ void data_print_csv(DataLibrary *data_library) {
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Raw Data Export, all times in UTC epoch format");
   // print stats
   app_log(APP_LOG_LEVEL_INFO, "", 0, "------------- Statistics -------------");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Current Time: %d", (int)time(NULL));
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Last Charged: %d", (int)SEC_IN_DAY); // TODO: Implement
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Record Life: %d", (int)SEC_IN_DAY); // TODO: Implement
+  // TODO: Implement all statistics
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Rate: %d", (int)data_library->charge_rate);
   // print body
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "------------- Raw Data -------------");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "-------------- Raw Data --------------");
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Epoch,\t\t%%,\tCharge,\tPlugged,");
-  DataNode *cur_node = data_library->head_node;
+  uint16_t index = 0;
+  DataNode *cur_node = prv_linked_list_get_node(data_library, index);
   while (cur_node) {
+    index++;
     app_log(APP_LOG_LEVEL_INFO, "", 0, "%d,\t%d,\t%d,\t%d,",
       cur_node->state.epoch + DATA_EPOCH_OFFSET, cur_node->state.percent, cur_node->state.charging,
       cur_node->state.plugged);
-    cur_node = cur_node->next;
+    cur_node = prv_linked_list_get_node(data_library, index);
   }
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "=====================================");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "--------------------------------------");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Data Point Count: %d", index - 1);
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "======================================");
 }
 
 // Process a BatteryChargeState structure and add it to the data
 void data_process_new_battery_state(DataLibrary *data_library,
                                     BatteryChargeState battery_state) {
   // check if duplicate of last point
-  DataNode *last_node = prv_linked_list_get_data_node(data_library, 0);
+  DataNode *last_node = prv_linked_list_get_node(data_library, 0);
   if (last_node && battery_state.charge_percent == last_node->state.percent &&
       battery_state.is_charging == last_node->state.charging &&
       battery_state.is_plugged == last_node->state.plugged) { return; }
@@ -523,17 +522,16 @@ void data_process_new_battery_state(DataLibrary *data_library,
 // Destroy data and reload from persistent storage
 void data_reload(DataLibrary *data_library) {
   // clean up data nodes
-  prv_linked_list_destroy(data_library, data_library->head_node);
+  prv_linked_list_destroy(data_library);
   // prep structure
   data_library->node_count = 0;
+  data_library->head_node_index = 0;
   data_library->head_node = NULL;
-  data_library->loaded_data_block_count = 0;
   // read data from persistent storage
   if (!persist_exists(PERSIST_DATA_KEY)) {
     prv_first_launch_prep(data_library);
-    data_library->loaded_data_block_count = 1;
   } else {
-    prv_persist_read_next_data_block(data_library);
+    prv_persist_read_data_block(data_library, 0);
   }
 }
 
@@ -543,23 +541,22 @@ DataLibrary *data_initialize(void) {
   DataLibrary *data_library = MALLOC(sizeof(DataLibrary));
   data_library->charge_rate = prv_get_default_charge_rate();
   data_library->node_count = 0;
+  data_library->head_node_index = 0;
   data_library->head_node = NULL;
   data_library->data_is_contiguous = false;
-  data_library->loaded_data_block_count = 0;
   data_library->data_logging_session = data_logging_create(DATA_LOGGING_TAG,
     DATA_LOGGING_BYTE_ARRAY, sizeof(DataState), true);
   // read data from persistent storage
   if (!persist_exists(PERSIST_DATA_KEY)) {
     prv_first_launch_prep(data_library);
-    data_library->loaded_data_block_count = 1;
   } else {
-    prv_persist_read_next_data_block(data_library);
+    prv_persist_read_data_block(data_library, 0);
   }
   return data_library;
 }
 
 // Terminate the data
 void data_terminate(DataLibrary *data_library) {
-  prv_linked_list_destroy(data_library, data_library->head_node);
+  prv_linked_list_destroy(data_library);
   free(data_library);
 }
