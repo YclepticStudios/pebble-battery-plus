@@ -32,8 +32,9 @@ typedef struct DataState {
 
 // Data structure of node including "next" pointer for linked list
 typedef struct DataNode {
-  DataState         state;    //< The actual data for this data point
-  struct DataNode   *next;    //< Pointer to next node in linked list
+  DataState         state;        //< The actual data for this data point
+  int32_t           charge_rate;  //< The charge rate when at this data point
+  struct DataNode   *next;        //< Pointer to next node in linked list
 } __attribute__((__packed__)) DataNode;
 
 // Data structure used when saving to and reading from persistent storage
@@ -48,7 +49,6 @@ typedef struct DataStateBlock {
 
 // Main data structure library
 typedef struct DataLibrary {
-  int32_t                 charge_rate;              //< The current charge rate in sec per percent
   uint16_t                node_count;               //< The number of nodes in the linked list
   uint16_t                head_node_index;          //< The index of the head node into the data
   DataNode                *head_node;               //< The head node for linked list, newest first
@@ -65,6 +65,20 @@ static void prv_persist_read_data_block(DataLibrary *data_library, uint16_t inde
 // Private Functions
 //
 
+// Get default charge rate based on pebble type
+static int32_t prv_get_default_charge_rate(void) {
+  WatchInfoModel watch_model = watch_info_get_model();
+  switch (watch_model) {
+    case WATCH_INFO_MODEL_PEBBLE_TIME_STEEL:
+      return -10 * SEC_IN_DAY / 100;
+    case WATCH_INFO_MODEL_PEBBLE_TIME_ROUND_14:
+    case WATCH_INFO_MODEL_PEBBLE_TIME_ROUND_20:
+      return -2 * SEC_IN_DAY / 100;
+    default:
+      return -7 * SEC_IN_DAY / 100;
+  }
+}
+
 // Add node to start of linked list
 static void prv_linked_list_add_node_start(DataLibrary *data_library, DataNode *node) {
   node->next = data_library->head_node;
@@ -74,9 +88,9 @@ static void prv_linked_list_add_node_start(DataLibrary *data_library, DataNode *
 
 // Add node to end of linked list
 static void prv_linked_list_add_node_end(DataLibrary *data_library, DataNode *node) {
+  data_library->node_count++;
   if (!data_library->head_node) {
     data_library->head_node = node;
-    data_library->node_count++;
     return;
   }
   DataNode *cur_node = data_library->head_node;
@@ -84,7 +98,19 @@ static void prv_linked_list_add_node_end(DataLibrary *data_library, DataNode *no
     cur_node = cur_node->next;
   }
   cur_node->next = node;
+}
+
+// Add node after node
+static void prv_linked_list_insert_node_after(DataLibrary *data_library, DataNode *insert_after,
+                                              DataNode *node) {
   data_library->node_count++;
+  if (!insert_after) {
+    node->next = data_library->head_node;
+    data_library->head_node = node;
+    return;
+  }
+  node->next = insert_after->next;
+  insert_after->next = node;
 }
 
 // Destroy all data nodes in linked list
@@ -99,6 +125,18 @@ static void prv_linked_list_destroy(DataLibrary *data_library) {
     free(tmp_node);
     data_library->node_count--;
   }
+}
+
+// Get the last node in the linked list
+static DataNode* prv_linked_list_get_last_node(DataLibrary *data_library) {
+  if (!data_library->head_node) {
+    return NULL;
+  }
+  DataNode *cur_node = data_library->head_node;
+  while (cur_node->next) {
+    cur_node = cur_node->next;
+  }
+  return cur_node;
 }
 
 // Get a DataNode at a certain index into the linked list, with 0 being most recent
@@ -123,38 +161,25 @@ static DataNode* prv_linked_list_get_node(DataLibrary *data_library, uint16_t in
   return NULL;
 }
 
-// Get the latest data state (returns the current battery value if no nodes)
-static DataState prv_get_current_data_state(DataLibrary *data_library) {
+// Get the latest data node (returns a fake data node with the current battery value if no nodes)
+static DataNode prv_get_current_data_node(DataLibrary *data_library) {
   // get current battery state
-  DataState cur_state;
+  DataNode fake_node;
   BatteryChargeState bat_state = battery_state_service_peek();
-  cur_state.epoch = time(NULL) - DATA_EPOCH_OFFSET;
-  cur_state.percent = bat_state.charge_percent;
-  cur_state.charging = bat_state.is_charging;
-  cur_state.plugged = bat_state.is_plugged;
+  fake_node.state.epoch = time(NULL) - DATA_EPOCH_OFFSET;
+  fake_node.state.percent = bat_state.charge_percent;
+  fake_node.state.charging = bat_state.is_charging;
+  fake_node.state.plugged = bat_state.is_plugged;
+  fake_node.charge_rate = prv_get_default_charge_rate();
   // get latest existing data point
   DataNode *cur_node = prv_linked_list_get_node(data_library, 0);
   // return current state if no last node or not matching with last node
-  if (!cur_node || cur_node->state.percent != cur_state.percent ||
-    cur_node->state.charging != cur_state.charging ||
-    cur_node->state.plugged != cur_state.plugged) {
-    return cur_state;
+  if (!cur_node || cur_node->state.percent != fake_node.state.percent ||
+    cur_node->state.charging != fake_node.state.charging ||
+    cur_node->state.plugged != fake_node.state.plugged) {
+    return fake_node;
   }
-  return cur_node->state;
-}
-
-// Get default charge rate based on pebble type
-static int32_t prv_get_default_charge_rate(void) {
-  WatchInfoModel watch_model = watch_info_get_model();
-  switch (watch_model) {
-    case WATCH_INFO_MODEL_PEBBLE_TIME_STEEL:
-      return -10 * SEC_IN_DAY / 100;
-    case WATCH_INFO_MODEL_PEBBLE_TIME_ROUND_14:
-    case WATCH_INFO_MODEL_PEBBLE_TIME_ROUND_20:
-      return -2 * SEC_IN_DAY / 100;
-    default:
-      return -7 * SEC_IN_DAY / 100;
-  }
+  return *cur_node;
 }
 
 // Check if two data points are contiguous
@@ -203,42 +228,40 @@ static void prv_persist_read_data_block(DataLibrary *data_library, uint16_t inde
        key > persist_key - 3 && key > PERSIST_DATA_KEY && persist_exists(key); key--) {
     // read the data from persistent storage
     persist_read_data(key, &data_state_block, sizeof(DataStateBlock));
-    // calculate charge rate if most recent data
-    if (index == 0) {
-      data_library->charge_rate = data_state_block.initial_charge_rate;
-    }
     // loop over data
-    DataNode *tmp_node;
-    for (uint8_t ii = 0, jj = data_state_block.data_state_count - 1;
-         ii < data_state_block.data_state_count; ii++, jj--) {
+    int32_t tmp_charge_rate = 0;
+    DataNode *tmp_node, *insert_after_node = prv_linked_list_get_last_node(data_library);
+    for (uint8_t ii = 0; ii < data_state_block.data_state_count; ii++) {
       // add node to linked list
       tmp_node = MALLOC(sizeof(DataNode));
-      tmp_node->state = data_state_block.data_states[jj];
+      tmp_node->state = data_state_block.data_states[ii];
       tmp_node->next = NULL;
-      prv_linked_list_add_node_end(data_library, tmp_node);
-      // calculate current charge rate if most recent data
-      if (index == 0 && ii + 1 < data_state_block.data_state_count) {
-        data_library->charge_rate = prv_calculate_charge_rate(data_state_block.data_states[ii],
-          data_state_block.data_states[ii + 1], data_library->charge_rate);
+      if (ii == 0) {
+        tmp_node->charge_rate = tmp_charge_rate = data_state_block.initial_charge_rate;
+      } else {
+        tmp_charge_rate = prv_calculate_charge_rate(data_state_block.data_states[ii - 1],
+          data_state_block.data_states[ii], tmp_charge_rate);
+        tmp_node->charge_rate = tmp_charge_rate;
       }
+      prv_linked_list_insert_node_after(data_library, insert_after_node, tmp_node);
     }
   }
 }
 
-// Write newest DataState into persistent storage
-static void prv_persist_write_data_state(DataLibrary *data_library, DataState data_state) {
+// Write newest DataNode into persistent storage
+static void prv_persist_write_data_node(DataLibrary *data_library, DataNode *data_node) {
   // get the location and size of the data
   uint32_t persist_key = persist_read_int(PERSIST_DATA_KEY);
   // build a DataStateBlock to write into memory
   DataStateBlock data_state_block = (DataStateBlock) {
     .data_version = DATA_VERSION,
-    .initial_charge_rate = data_library->charge_rate,
+    .initial_charge_rate = data_node->charge_rate,
     .data_state_count = 0
   };
   if (persist_exists(persist_key)) {
     persist_read_data(persist_key, &data_state_block, sizeof(DataStateBlock));
   }
-  data_state_block.data_states[data_state_block.data_state_count++] = data_state;
+  data_state_block.data_states[data_state_block.data_state_count++] = data_node->state;
   // get the oldest existing key
   uint32_t old_persist_key = persist_key;
   while (old_persist_key > PERSIST_DATA_KEY && persist_exists(old_persist_key - 1)) {
@@ -261,26 +284,30 @@ static void prv_persist_write_data_state(DataLibrary *data_library, DataState da
 // Process a DataState structure by calculating stats and persisting
 static void prv_process_data_state(DataLibrary *data_library, DataState data_state) {
   // TODO: Calculate record life
-  // calculate charge rate
+  // TODO: Schedule wake-up alert
+  // add new node to start of linked list
+  DataNode *new_node = MALLOC(sizeof(DataNode));
+  new_node->state = data_state;
+  new_node->next = NULL;
   DataNode *cur_node = prv_linked_list_get_node(data_library, 0);
   if (cur_node) {
-    data_library->charge_rate = prv_calculate_charge_rate(cur_node->state, data_state,
-      data_library->charge_rate);
+    new_node->charge_rate = prv_calculate_charge_rate(cur_node->state, data_state,
+      cur_node->charge_rate);
+  } else {
+    new_node->charge_rate = prv_get_default_charge_rate();
   }
-  // TODO: Schedule wake-up alert
+  prv_linked_list_add_node_start(data_library, new_node);
+  // destroy last node
+  DataNode *old_node = prv_linked_list_get_node(data_library, data_library->node_count - 2);
+  if (old_node) {
+    free(old_node->next);
+    old_node->next = NULL;
+    data_library->node_count--;
+  }
   // persist the data point
-  prv_persist_write_data_state(data_library, data_state);
+  prv_persist_write_data_node(data_library, new_node);
   // send the data to the phone with data logging
   data_logging_log(data_library->data_logging_session, &data_state, 1);
-  // add new node to start of linked list
-  DataNode *tmp_node = MALLOC(sizeof(DataNode));
-  tmp_node->state = data_state;
-  tmp_node->next = NULL;
-  prv_linked_list_add_node_start(data_library, tmp_node);
-  // destroy last node
-  tmp_node = prv_linked_list_get_node(data_library, data_library->node_count - 2);
-  free(tmp_node->next);
-  tmp_node->next = NULL;
 }
 
 
@@ -362,8 +389,9 @@ uint16_t data_get_history_points_count(DataLibrary *data_library) {
 
 // Get the time the watch needs to be charged by
 int32_t data_get_charge_by_time(DataLibrary *data_library) {
-  DataState cur_state = prv_get_current_data_state(data_library);
-  return cur_state.epoch + DATA_EPOCH_OFFSET + cur_state.percent * (-data_library->charge_rate);
+  DataNode cur_node = prv_get_current_data_node(data_library);
+  return cur_node.state.epoch + DATA_EPOCH_OFFSET +
+    cur_node.state.percent * (-cur_node.charge_rate);
 }
 
 // Get the estimated time remaining in seconds
@@ -410,15 +438,15 @@ int32_t data_get_percent_per_day(DataLibrary *data_library) {
 
 // Get the current battery percentage (this is an estimate of the exact value)
 uint8_t data_get_battery_percent(DataLibrary *data_library) {
-  // get current state
-  DataState cur_state = prv_get_current_data_state(data_library);
+  // get current node
+  DataNode cur_node = prv_get_current_data_node(data_library);
   // calculate exact percent
-  int32_t percent = cur_state.percent + (time(NULL) - (cur_state.epoch + DATA_EPOCH_OFFSET)) /
-    data_library->charge_rate;
-  if (percent > cur_state.percent) {
-    percent = cur_state.percent;
-  } else if (percent <= cur_state.percent - 10) {
-    percent = cur_state.percent - 9;
+  int32_t percent = cur_node.state.percent +
+    (time(NULL) - (cur_node.state.epoch + DATA_EPOCH_OFFSET)) / cur_node.charge_rate;
+  if (percent > cur_node.state.percent) {
+    percent = cur_node.state.percent;
+  } else if (percent <= cur_node.state.percent - 10) {
+    percent = cur_node.state.percent - 9;
   }
   if (percent < 0) {
     percent = 0;
@@ -434,7 +462,8 @@ int32_t data_get_past_max_life(DataLibrary *data_library, uint16_t index) {
 
 // Get the maximum battery life possible with the current discharge rate
 int32_t data_get_max_life(DataLibrary *data_library) {
-  return data_library->charge_rate * (-100);
+  DataNode cur_node = prv_get_current_data_node(data_library);
+  return cur_node.charge_rate * (-100);
 }
 
 // Get a data point by its index with 0 being the most recent
@@ -466,32 +495,33 @@ uint16_t data_get_data_point_count_including_seconds(DataLibrary *data_library, 
 
 // Print the data to the console in CSV format
 void data_print_csv(DataLibrary *data_library) {
+  DataNode cur_data_node = prv_get_current_data_node(data_library);
   // print header
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "======================================");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "=====================================================");
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Battery+ by Ycleptic Studios");
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Raw Data Export, all times in UTC epoch format");
   // print stats
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "------------- Statistics -------------");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "--------------------- Statistics --------------------");
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Current Time: %d", (int)time(NULL));
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Last Charged: %d", (int)SEC_IN_DAY); // TODO: Implement
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Record Life: %d", (int)SEC_IN_DAY); // TODO: Implement
   // TODO: Implement all statistics
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Rate: %d", (int)data_library->charge_rate);
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Rate: %d", (int)cur_data_node.charge_rate);
   // print body
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "-------------- Raw Data --------------");
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Epoch,\t\t%%,\tCharge,\tPlugged,");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "---------------------- Raw Data ---------------------");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Epoch,\t\tPerc,\tChar,\tPlug,\tCharge Rate,");
   uint16_t index = 0;
   DataNode *cur_node = prv_linked_list_get_node(data_library, index);
   while (cur_node) {
     index++;
-    app_log(APP_LOG_LEVEL_INFO, "", 0, "%d,\t%d,\t%d,\t%d,",
+    app_log(APP_LOG_LEVEL_INFO, "", 0, "%d,\t%d,\t%d,\t%d,\t%d,",
       cur_node->state.epoch + DATA_EPOCH_OFFSET, cur_node->state.percent, cur_node->state.charging,
-      cur_node->state.plugged);
+      cur_node->state.plugged, (int)cur_node->charge_rate);
     cur_node = prv_linked_list_get_node(data_library, index);
   }
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "--------------------------------------");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "-----------------------------------------------------");
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Data Point Count: %d", index - 1);
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "======================================");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "=====================================================");
 }
 
 // Process a BatteryChargeState structure and add it to the data
@@ -539,7 +569,6 @@ void data_reload(DataLibrary *data_library) {
 DataLibrary *data_initialize(void) {
   // create new DataLibrary
   DataLibrary *data_library = MALLOC(sizeof(DataLibrary));
-  data_library->charge_rate = prv_get_default_charge_rate();
   data_library->node_count = 0;
   data_library->head_node_index = 0;
   data_library->head_node = NULL;
