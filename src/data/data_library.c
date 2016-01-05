@@ -333,7 +333,7 @@ static void prv_process_save_state(DataLibrary *data_library, SaveState save_sta
   // persist the data point
   prv_persist_write_data_node(data_library, new_node);
   // send the data to the phone with data logging
-  data_logging_log(data_library->data_logging_session, &save_state, 1);
+  data_logging_log(data_library->data_logging_session, new_node, 1);
 }
 
 
@@ -599,7 +599,7 @@ DataLibrary *data_initialize(void) {
   data_library->head_node = NULL;
   data_library->data_is_contiguous = false;
   data_library->data_logging_session = data_logging_create(DATA_LOGGING_TAG,
-    DATA_LOGGING_BYTE_ARRAY, sizeof(SaveState), true);
+    DATA_LOGGING_BYTE_ARRAY, sizeof(DataNode), true);
   // read data from persistent storage
   if (!persist_exists(PERSIST_DATA_KEY)) {
     prv_first_launch_prep(data_library);
