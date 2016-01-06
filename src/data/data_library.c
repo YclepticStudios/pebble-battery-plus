@@ -22,9 +22,9 @@
 #define PERSIST_RECORD_LIFE_KEY 999     //< Persistent storage key where the record life is stored
 #define DATA_LOGGING_TAG 5155346        //< Tag used to identify data once on phone
 // Thresholds
-#define CHARGING_MIN_LENGTH 45          //< Minimum duration while charging to register (sec)
-#define DISCHARGING_MIN_LENGTH 300      //< Minimum duration when discharging to register (sec)
-#define DISCONTIGUOUS_MIN_LENGTH 0     //< Minimum length of discontiguous region to register (sec)
+#define CHARGING_MIN_LENGTH 60          //< Minimum duration while charging to register (sec)
+#define DISCHARGING_MIN_LENGTH 3600     //< Minimum duration when discharging to register (sec)
+#define DISCONTIGUOUS_MIN_LENGTH 0      //< Minimum length of discontiguous region to register (sec)
 
 
 // Structure containing compressed data in the form it will be saved in
@@ -584,8 +584,19 @@ int32_t data_get_run_time(DataLibrary *data_library, uint16_t index) {
 
 // Get the maximum battery life possible at a certain charge cycle (0 is current)
 int32_t data_get_max_life(DataLibrary *data_library, uint16_t index) {
-  DataNode cur_node = prv_get_current_data_node(data_library);
-  return cur_node.charge_rate * (-100);
+  if (index == 0) {
+    // return current max life
+    DataNode cur_node = prv_get_current_data_node(data_library);
+    return cur_node.charge_rate * (-100);
+  } else {
+    ChargeCycleNode *cur_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index(
+      (Node*)data_library->cycle_head_node, index);
+    if (!cur_node || !cur_node->avg_charge_rate) {
+      return -1;
+    } else {
+      return cur_node->avg_charge_rate * (-100);
+    }
+  }
 }
 
 // Get the current percent-per-day of battery life
@@ -625,9 +636,9 @@ bool data_get_data_point(DataLibrary *data_library, uint16_t index, int32_t *epo
   }
 }
 
-// Get the number of charge cycles which include the last x number of seconds
+// Get the number of charge cycles which include the last x number of seconds (0 gets all points)
 uint16_t data_get_charge_cycle_count_including_seconds(DataLibrary *data_library, int32_t seconds) {
-  time_t end_time = time(NULL) - seconds;
+  time_t end_time = seconds ? time(NULL) - seconds : 0;
   uint16_t index = 0;
   ChargeCycleNode *cur_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index(
     (Node*)data_library->cycle_head_node, index);
