@@ -27,6 +27,8 @@ static void prv_battery_state_change_handler(BatteryChargeState battery_state) {
 static void prv_initialize(void) {
   data_library = data_initialize();
   battery_state_service_subscribe(prv_battery_state_change_handler);
+  // run initial point through
+  data_process_new_battery_state(data_library, battery_state_service_peek());
 }
 
 // Terminate
