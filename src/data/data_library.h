@@ -97,6 +97,12 @@ int32_t data_get_max_life(DataLibrary *data_library);
 bool data_get_data_point(DataLibrary *data_library, uint16_t index, int32_t *epoch,
                                  uint8_t *percent);
 
+//! Get the number of charge cycles which include the last x number of seconds
+//! @param data_library A pointer to an existing DataLibrary
+//! @param seconds The number of seconds back to count
+//! @return The minimum number of charge cycles to encompass that time span
+uint16_t data_get_charge_cycle_count_including_seconds(DataLibrary *data_library, int32_t seconds);
+
 //! Get the number of data points which include the last x number of seconds
 //! @param data_library A pointer to an existing DataLibrary
 //! @param seconds The number of seconds back to count
