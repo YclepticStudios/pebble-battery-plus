@@ -24,7 +24,7 @@
 // Thresholds
 #define CHARGING_MIN_LENGTH 45          //< Minimum duration while charging to register (sec)
 #define DISCHARGING_MIN_LENGTH 300      //< Minimum duration when discharging to register (sec)
-#define DISCONTIGUOUS_MIN_LENGTH 45     //< Minimum length of discontiguous region to register (sec)
+#define DISCONTIGUOUS_MIN_LENGTH 0     //< Minimum length of discontiguous region to register (sec)
 
 
 // Structure containing compressed data in the form it will be saved in
@@ -293,7 +293,7 @@ static void prv_calculate_charge_cycles(DataLibrary *data_library) {
   int32_t charge_rate_avg = 0;
   typedef enum DataType { TypeNotContiguous, TypeCharging, TypeDischarging, TypeFirstRun } DataType;
   DataType cur_type = TypeFirstRun, next_type;
-  int32_t min_length_threshold[] = { DISCHARGING_MIN_LENGTH, CHARGING_MIN_LENGTH,
+  int32_t min_length_threshold[] = { DISCONTIGUOUS_MIN_LENGTH, CHARGING_MIN_LENGTH,
     DISCHARGING_MIN_LENGTH };
   ChargeCycleNode *charge_node = NULL;
   // prep for looping over data
@@ -318,11 +318,12 @@ static void prv_calculate_charge_cycles(DataLibrary *data_library) {
       charge_rate_count++;
     }
     // if change in type
-    if (next_type != cur_type && cur_type != TypeFirstRun) {
+    if (next_type != cur_type) {
       // filter out small transitions
       if (last_transition - cur_node->epoch >= min_length_threshold[cur_type]) {
         // apply truth table of what to do for different transitions
-        if (cur_type == TypeCharging || next_type == TypeNotContiguous) {
+        if ((cur_type == TypeCharging || next_type == TypeNotContiguous) &&
+          cur_type != TypeFirstRun) {
           if (!charge_node) {
             charge_node = prv_create_charge_cycle_node(data_library);
           }
@@ -346,8 +347,6 @@ static void prv_calculate_charge_cycles(DataLibrary *data_library) {
       }
       // update last transition time
       last_transition = cur_node->epoch;
-    } else if (cur_type == TypeFirstRun) {
-      cur_type = next_type;
     }
     // index
     cur_state = next_state;
@@ -530,12 +529,6 @@ static void prv_first_launch_prep(DataLibrary *data_library) {
 // API Interface
 //
 
-// Get the number of points of history loaded (for run time and max life)
-uint16_t data_get_history_points_count(DataLibrary *data_library) {
-  // TODO: Implement this function
-  return 9;
-}
-
 // Get the time the watch needs to be charged by
 int32_t data_get_charge_by_time(DataLibrary *data_library) {
   DataNode cur_node = prv_get_current_data_node(data_library);
@@ -547,41 +540,39 @@ int32_t data_get_life_remaining(DataLibrary *data_library) {
   return data_get_charge_by_time(data_library) - time(NULL);
 }
 
-// Get the time the watch was last charged
-// Based off app install time if no data
-int32_t data_get_last_charge_time(DataLibrary *data_library) {
-  // TODO: Implement this function
-  return time(NULL) - SEC_IN_DAY;
-}
-
-// Get a past run time by its index (0 is current, 1 is yesterday, etc)
-// Must be between 0 and DATA_HISTORY_INDEX_MAX
-int32_t data_get_past_run_time(DataLibrary *data_library, uint16_t index) {
-  // TODO: Implement this function
-  return SEC_IN_DAY;
-}
-
 // Get the record run time of the watch
 // Based off app install time if no data
 int32_t data_get_record_run_time(DataLibrary *data_library) {
   // TODO: Implement this function
   // check if current run time is greater than record
-  if (data_get_run_time(data_library) > SEC_IN_DAY) { // SEC_IN_DAY should be record life
-    return data_get_run_time(data_library);
+  if (data_get_run_time(data_library, 0) > SEC_IN_DAY) { // SEC_IN_DAY should be record life
+    return data_get_run_time(data_library, 0);
   }
   return SEC_IN_DAY; // SEC_IN_DAY should be record life
 }
 
-// Get the current run time of the watch in seconds
-// If no charge data, returns app install time
-int32_t data_get_run_time(DataLibrary *data_library) {
-  // TODO: Implement this function
-  return time(NULL) - SEC_IN_DAY; // SEC_IN_DAY should be last charged
+// Get the run time at a certain charge cycle returns negative value if no data
+int32_t data_get_run_time(DataLibrary *data_library, uint16_t index) {
+  ChargeCycleNode *cur_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index(
+    (Node*)data_library->cycle_head_node, index);
+  if (!cur_node || (index == 0 && cur_node->end_epoch != 0)) {
+    return -1;
+  } else if (cur_node->end_epoch == 0) {
+    return time(NULL) - cur_node->discharge_epoch;
+  } else {
+    return cur_node->end_epoch - cur_node->discharge_epoch;
+  }
+}
+
+// Get the maximum battery life possible at a certain charge cycle (0 is current)
+int32_t data_get_max_life(DataLibrary *data_library, uint16_t index) {
+  DataNode cur_node = prv_get_current_data_node(data_library);
+  return cur_node.charge_rate * (-100);
 }
 
 // Get the current percent-per-day of battery life
 int32_t data_get_percent_per_day(DataLibrary *data_library) {
-  return 10000 / (data_get_max_life(data_library) * 100 / SEC_IN_DAY);
+  return 10000 / (data_get_max_life(data_library, 0) * 100 / SEC_IN_DAY);
 }
 
 // Get the current battery percentage (this is an estimate of the exact value)
@@ -602,18 +593,6 @@ uint8_t data_get_battery_percent(DataLibrary *data_library) {
   return percent;
 }
 
-// Get a past max life by its index (0 is current, 1 is yesterday, etc)
-int32_t data_get_past_max_life(DataLibrary *data_library, uint16_t index) {
-  // TODO: Implement this function
-  return data_get_max_life(data_library);
-}
-
-// Get the maximum battery life possible with the current discharge rate
-int32_t data_get_max_life(DataLibrary *data_library) {
-  DataNode cur_node = prv_get_current_data_node(data_library);
-  return cur_node.charge_rate * (-100);
-}
-
 // Get a data point by its index with 0 being the most recent
 bool data_get_data_point(DataLibrary *data_library, uint16_t index, int32_t *epoch,
                                  uint8_t *percent) {
@@ -630,8 +609,17 @@ bool data_get_data_point(DataLibrary *data_library, uint16_t index, int32_t *epo
 
 // Get the number of charge cycles which include the last x number of seconds
 uint16_t data_get_charge_cycle_count_including_seconds(DataLibrary *data_library, int32_t seconds) {
-  // TODO: Implement this function
-  return 0;
+  time_t end_time = time(NULL) - seconds;
+  uint16_t index = 0;
+  ChargeCycleNode *cur_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index(
+    (Node*)data_library->cycle_head_node, index);
+  while (cur_node) {
+    index++;
+    if (cur_node->charge_epoch < end_time) { break; }
+    cur_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index(
+      (Node*)data_library->cycle_head_node, index);
+  }
+  return index;
 }
 
 // Get the number of data points which include the last x number of seconds

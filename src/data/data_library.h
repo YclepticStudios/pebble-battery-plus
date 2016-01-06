@@ -29,11 +29,6 @@ typedef struct DataLibrary DataLibrary;
 // API Interface
 //
 
-//! Get the number of points of history loaded (for run time and max life)
-//! @param data_library A pointer to an existing DataLibrary
-//! @return The number of data points available
-uint16_t data_get_history_points_count(DataLibrary *data_library);
-
 //! Get the time the watch needs to be charged by
 //! @param data_library A pointer to an existing DataLibrary
 //! @return The time the watch needs to be charged as a UTC epoch
@@ -44,27 +39,22 @@ int32_t data_get_charge_by_time(DataLibrary *data_library);
 //! @return The number of seconds of battery life remaining
 int32_t data_get_life_remaining(DataLibrary *data_library);
 
-//! Get the time the watch was last charged
-//! @param data_library A pointer to an existing DataLibrary
-//! @return The time the watch was lasted charged as a UTC epoch
-int32_t data_get_last_charge_time(DataLibrary *data_library);
-
-//! Get a past run time by its index (0 is current, 1 is yesterday, etc)
-//! Must be between 0 and DATA_HISTORY_INDEX_MAX
-//! @param data_library A pointer to an existing DataLibrary
-//! @param index The number of charge cycles into the past
-//! @return The duration of that run time in seconds
-int32_t data_get_past_run_time(DataLibrary *data_library, uint16_t index);
-
 //! Get the record run time of the watch
 //! @param data_library A pointer to an existing DataLibrary
 //! @return The record run time of the watch in seconds
 int32_t data_get_record_run_time(DataLibrary *data_library);
 
-//! Get the current run time of the watch in seconds (if no charge data, returns app install time)
+//! Get the run time at a certain charge cycle returns negative value if no data
 //! @param data_library A pointer to an existing DataLibrary
+//! @param index The index of the charge cycle to use (0 is current max life)
 //! @return The number of seconds since the last charge
-int32_t data_get_run_time(DataLibrary *data_library);
+int32_t data_get_run_time(DataLibrary *data_library, uint16_t index);
+
+//! Get the maximum battery life possible at a certain charge cycle (0 is current)
+//! @param data_library A pointer to an existing DataLibrary
+//! @param index The index of the charge cycle to use (0 is current max life)
+//! @return The maximum seconds of battery life
+int32_t data_get_max_life(DataLibrary *data_library, uint16_t index);
 
 //! Get the current percent-per-day of battery life
 //! @param data_library A pointer to an existing DataLibrary
@@ -75,18 +65,6 @@ int32_t data_get_percent_per_day(DataLibrary *data_library);
 //! @param data_library A pointer to an existing DataLibrary
 //! @return An estimate of the current exact battery percent
 uint8_t data_get_battery_percent(DataLibrary *data_library);
-
-//! Get a past max life by its index (0 is current, 1 is yesterday, etc)
-//! Must be between 0 and DATA_HISTORY_INDEX_MAX
-//! @param data_library A pointer to an existing DataLibrary
-//! @param index The number of charge cycles into the past
-//! @return The duration of that max life in seconds
-int32_t data_get_past_max_life(DataLibrary *data_library, uint16_t index);
-
-//! Get the maximum battery life possible with the current discharge rate
-//! @param data_library A pointer to an existing DataLibrary
-//! @return The maximum seconds of battery life
-int32_t data_get_max_life(DataLibrary *data_library);
 
 //! Get a data point by its index with 0 being the most recent
 //! @param data_library A pointer to an existing DataLibrary

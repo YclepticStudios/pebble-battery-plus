@@ -62,7 +62,7 @@ static void prv_render_selected_text(GContext *ctx, GRect bounds, uint16_t click
   } else if (cur_mode == 1) {
     hint_text = "Run Time";
     selection_color = COLOR_RING_EMPTY;
-    selection_value = data_get_run_time(data_library);
+    selection_value = data_get_run_time(data_library, 0);
   } else if (cur_mode == 2) {
     hint_text = "Low Alert";
     selection_color = COLOR_RING_LOW;
@@ -78,6 +78,10 @@ static void prv_render_selected_text(GContext *ctx, GRect bounds, uint16_t click
   char day_buff[4], hr_buff[3];
   snprintf(day_buff, sizeof(day_buff), "%d", days);
   snprintf(hr_buff, sizeof(hr_buff), "%02d", hrs);
+  if (selection_value < 0) {
+    snprintf(day_buff, sizeof(day_buff), "-");
+    snprintf(hr_buff, sizeof(hr_buff), "-");
+  }
   // get bounds
   GRect selection_bounds = grect_inset(bounds, GEdgeInsets1(RING_WIDTH));
   selection_bounds.size.h /= 2;
@@ -107,7 +111,7 @@ static void prv_render_selected_text(GContext *ctx, GRect bounds, uint16_t click
 // Render progress ring
 static void prv_render_ring(GContext *ctx, GRect bounds, DataLibrary *data_library) {
   // calculate angles for ring color change positions
-  int32_t max_life_sec = data_get_max_life(data_library);
+  int32_t max_life_sec = data_get_max_life(data_library, 0);
   int32_t angle_low = TRIG_MAX_ANGLE * DATA_LEVEL_LOW_THRESH_SEC / max_life_sec;
   int32_t angle_med = (int64_t)TRIG_MAX_ANGLE * DATA_LEVEL_MED_THRESH_SEC / max_life_sec;
   int32_t angle_level = TRIG_MAX_ANGLE * data_get_battery_percent(data_library) / 100;
