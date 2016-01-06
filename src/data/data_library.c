@@ -283,18 +283,18 @@ static ChargeCycleNode* prv_create_charge_cycle_node(DataLibrary *data_library) 
 }
 
 // Process data and calculate charge cycles
-static void prv_calculate_charge_cycles(DataLibrary *data_library) {
+static void prv_calculate_charge_cycles(DataLibrary *data_library, uint16_t max_cycle_count) {
   // clear any existing charge cycles
   prv_linked_list_destroy((Node**)&data_library->cycle_head_node, &data_library->cycle_node_count);
   // data properties
   bool contiguous;
-  int32_t last_transition = time(NULL) + DISCHARGING_MIN_LENGTH;
+  int32_t last_transition = time(NULL);
   uint16_t charge_rate_count = 0;
   int32_t charge_rate_avg = 0;
   typedef enum DataType { TypeNotContiguous, TypeCharging, TypeDischarging, TypeFirstRun } DataType;
   DataType cur_type = TypeFirstRun, next_type;
   int32_t min_length_threshold[] = { DISCONTIGUOUS_MIN_LENGTH, CHARGING_MIN_LENGTH,
-    DISCHARGING_MIN_LENGTH };
+    DISCHARGING_MIN_LENGTH, 0 };
   ChargeCycleNode *charge_node = NULL;
   // prep for looping over data
   uint16_t index = 0;
@@ -303,7 +303,7 @@ static void prv_calculate_charge_cycles(DataLibrary *data_library) {
   SaveState cur_state, next_state;
   prv_set_save_state_from_data_node(&cur_state, cur_node);
   // loop over data
-  while (cur_node && next_node && data_library->cycle_node_count <= CYCLE_LINKED_LIST_MAX_SIZE) {
+  while (cur_node && next_node && data_library->cycle_node_count <= max_cycle_count) {
     // get if contiguous
     prv_set_save_state_from_data_node(&next_state, next_node);
     contiguous = prv_are_save_states_contiguous(next_state, cur_state, next_node->charge_rate);
@@ -426,7 +426,12 @@ static void prv_persist_write_data_node(DataLibrary *data_library, DataNode *dat
 
 // Process a SaveState structure by calculating stats and persisting
 static void prv_process_save_state(DataLibrary *data_library, SaveState save_state) {
-  // TODO: Calculate record life
+  // calculate record run time
+  int32_t run_time = data_get_run_time(data_library, 0);
+  if (!persist_exists(PERSIST_RECORD_LIFE_KEY) ||
+    persist_read_int(PERSIST_RECORD_LIFE_KEY) < run_time) {
+    persist_write_int(PERSIST_RECORD_LIFE_KEY, run_time);
+  }
   // TODO: Schedule wake-up alert
   // add new node to start of linked list
   DataNode *new_node = MALLOC(sizeof(DataNode));
@@ -452,6 +457,13 @@ static void prv_process_save_state(DataLibrary *data_library, SaveState save_sta
   }
   // persist the data point
   prv_persist_write_data_node(data_library, new_node);
+  // recalculate charge cycles
+  if (lst_node) {
+    if (lst_node->charging || new_node->charging ||
+      !lst_node->contiguous || !new_node->contiguous) {
+      prv_calculate_charge_cycles(data_library, 1);
+    }
+  }
   // send the data to the phone with data logging
 #ifdef PEBBLE_BACKGROUND_WORKER
   data_logging_log(data_library->data_logging_session, new_node, 1);
@@ -519,6 +531,8 @@ static void prv_first_launch_prep(DataLibrary *data_library) {
   // port any legacy data
   if (persist_exists(LEGACY_PERSIST_DATA)) {
     prv_persist_convert_legacy_data(data_library);
+    // don't let the record be set by the old data
+    persist_delete(PERSIST_RECORD_LIFE_KEY);
   }
   // write out the current battery state
   data_process_new_battery_state(data_library, battery_state_service_peek());
@@ -543,12 +557,16 @@ int32_t data_get_life_remaining(DataLibrary *data_library) {
 // Get the record run time of the watch
 // Based off app install time if no data
 int32_t data_get_record_run_time(DataLibrary *data_library) {
-  // TODO: Implement this function
+  // get record life
+  int32_t record_run_time = 0;
+  if (persist_exists(PERSIST_RECORD_LIFE_KEY)) {
+    record_run_time = persist_read_int(PERSIST_RECORD_LIFE_KEY);
+  }
   // check if current run time is greater than record
-  if (data_get_run_time(data_library, 0) > SEC_IN_DAY) { // SEC_IN_DAY should be record life
+  if (data_get_run_time(data_library, 0) > record_run_time) {
     return data_get_run_time(data_library, 0);
   }
-  return SEC_IN_DAY; // SEC_IN_DAY should be record life
+  return record_run_time;
 }
 
 // Get the run time at a certain charge cycle returns negative value if no data
@@ -646,7 +664,8 @@ void data_print_csv(DataLibrary *data_library) {
   app_log(APP_LOG_LEVEL_INFO, "", 0, "--------------------- Statistics --------------------");
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Current Time: %d", (int)time(NULL));
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Last Charged: %d", (int)SEC_IN_DAY); // TODO: Implement
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Record Life: %d", (int)SEC_IN_DAY); // TODO: Implement
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Record Life: %d",
+    (int)data_get_record_run_time(data_library));
   // TODO: Implement all statistics
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Rate: %d", (int)cur_data_node.charge_rate);
   // print interpreted charge cycles
@@ -720,7 +739,7 @@ void data_reload(DataLibrary *data_library) {
     prv_first_launch_prep(data_library);
   } else {
     prv_persist_read_data_block(data_library, 0);
-    prv_calculate_charge_cycles(data_library);
+    prv_calculate_charge_cycles(data_library, CYCLE_LINKED_LIST_MAX_SIZE);
   }
 }
 
@@ -741,7 +760,7 @@ DataLibrary *data_initialize(void) {
     prv_first_launch_prep(data_library);
   } else {
     prv_persist_read_data_block(data_library, 0);
-    prv_calculate_charge_cycles(data_library);
+    prv_calculate_charge_cycles(data_library, CYCLE_LINKED_LIST_MAX_SIZE);
   }
   return data_library;
 }
