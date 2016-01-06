@@ -284,7 +284,6 @@ static ChargeCycleNode* prv_create_charge_cycle_node(DataLibrary *data_library) 
 
 // Process data and calculate charge cycles
 static void prv_calculate_charge_cycles(DataLibrary *data_library) {
-  // TODO: Fix the value for the "Run Stop" of the current run time
   // clear any existing charge cycles
   prv_linked_list_destroy((Node**)&data_library->cycle_head_node, &data_library->cycle_node_count);
   // data properties
@@ -455,7 +454,9 @@ static void prv_process_save_state(DataLibrary *data_library, SaveState save_sta
   // persist the data point
   prv_persist_write_data_node(data_library, new_node);
   // send the data to the phone with data logging
+#ifdef PEBBLE_BACKGROUND_WORKER
   data_logging_log(data_library->data_logging_session, new_node, 1);
+#endif
 }
 
 
@@ -743,8 +744,10 @@ DataLibrary *data_initialize(void) {
   data_library->head_node_index = 0;
   data_library->head_node = NULL;
   data_library->data_is_contiguous = false;
+#ifdef PEBBLE_BACKGROUND_WORKER
   data_library->data_logging_session = data_logging_create(DATA_LOGGING_TAG,
     DATA_LOGGING_BYTE_ARRAY, sizeof(DataNode), true);
+#endif
   // read data from persistent storage
   if (!persist_exists(PERSIST_DATA_KEY)) {
     prv_first_launch_prep(data_library);
