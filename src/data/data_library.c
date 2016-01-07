@@ -17,7 +17,7 @@
 #define DATA_BLOCK_SAVE_STATE_COUNT 50  //< Number of SaveStates that fit in one persistent write
 #define DATA_EPOCH_OFFSET 1420070400    //< Jan 1, 2015 at 0:00:00, reduces size when saving data
 #define LINKED_LIST_MAX_SIZE DATA_BLOCK_SAVE_STATE_COUNT * 3 //< Max size of linked list
-#define CYCLE_LINKED_LIST_MAX_SIZE 9    //< The maximum number of nodes in the charge cycle list
+#define CYCLE_LINKED_LIST_MIN_SIZE 9    //< The maximum number of nodes in the charge cycle list
 #define PERSIST_DATA_KEY 1000           //< The persistent storage key where the data write starts
 #define PERSIST_RECORD_LIFE_KEY 999     //< Persistent storage key where the record life is stored
 #define DATA_LOGGING_TAG 5155346        //< Tag used to identify data once on phone
@@ -273,12 +273,12 @@ static int32_t prv_calculate_charge_rate(SaveState old_state, SaveState new_stat
 }
 
 // Filter ChargeCycleNodes removing ones with too short run times or charge times
-static void prv_filter_charge_cycles(DataLibrary *data_library) {
+static void prv_filter_charge_cycles(DataLibrary *data_library, bool filter_last_node) {
   // loop over nodes and find matching index
   bool pending_delete = false;
   ChargeCycleNode **tmp_node = &data_library->cycle_head_node;
   ChargeCycleNode *lst_node = NULL, *cur_node = data_library->cycle_head_node;
-  while (cur_node) {
+  while (cur_node && (filter_last_node || cur_node->next)) {
     // check if too short a duration
     if (cur_node->end_epoch &&
         cur_node->end_epoch - cur_node->discharge_epoch <
@@ -313,16 +313,18 @@ static void prv_filter_charge_cycles(DataLibrary *data_library) {
 }
 
 // Create a ChargeCycleNode and add it to the linked list
-static ChargeCycleNode* prv_create_charge_cycle_node(DataLibrary *data_library) {
-    ChargeCycleNode *charge_node = MALLOC(sizeof(ChargeCycleNode));
-    memset(charge_node, 0, sizeof(ChargeCycleNode));
-    prv_linked_list_add_node_end((Node**)&data_library->cycle_head_node, (Node*)charge_node,
-      &data_library->cycle_node_count);
+static ChargeCycleNode* prv_create_charge_cycle_node(DataLibrary *data_library,
+                                                     int32_t charge_rate) {
+  ChargeCycleNode *charge_node = MALLOC(sizeof(ChargeCycleNode));
+  memset(charge_node, 0, sizeof(ChargeCycleNode));
+  charge_node->avg_charge_rate = charge_rate;
+  prv_linked_list_add_node_end((Node**)&data_library->cycle_head_node, (Node*)charge_node,
+    &data_library->cycle_node_count);
   return charge_node;
 }
 
 // Process data and calculate charge cycles
-static void prv_calculate_charge_cycles(DataLibrary *data_library, uint16_t max_cycle_count) {
+static void prv_calculate_charge_cycles(DataLibrary *data_library, uint16_t min_cycle_count) {
   // clear any existing charge cycles
   prv_linked_list_destroy((Node**)&data_library->cycle_head_node, &data_library->cycle_node_count);
   // data type
@@ -336,7 +338,7 @@ static void prv_calculate_charge_cycles(DataLibrary *data_library, uint16_t max_
   uint16_t index = 0;
   DataNode *cur_node = prv_list_get_data_node(data_library, index++);
   SaveState cur_state, lst_state = { .epoch = 0 };
-  while (cur_node && data_library->cycle_node_count < max_cycle_count) {
+  while (cur_node && data_library->cycle_node_count < min_cycle_count + 1) {
     // calculate data type
     prv_set_save_state_from_data_node(&cur_state, cur_node);
     if (index == 0) {
@@ -358,18 +360,19 @@ static void prv_calculate_charge_cycles(DataLibrary *data_library, uint16_t max_
       if ((lst_set_type == TypeCharging || cur_type == TypeNotContiguous) &&
         lst_set_type != TypeFirstRun) {
         if (!charge_node) {
-          charge_node = prv_create_charge_cycle_node(data_library);
+          charge_node = prv_create_charge_cycle_node(data_library, cur_node->charge_rate);
         }
         charge_node->charge_epoch = lst_state.epoch + DATA_EPOCH_OFFSET;
       }
       if (lst_set_type == TypeNotContiguous ||
           (lst_set_type == TypeCharging && cur_type == TypeDischarging)) {
-        charge_node = prv_create_charge_cycle_node(data_library);
-        charge_node->end_epoch = lst_state.epoch + DATA_EPOCH_OFFSET;
+        charge_node = prv_create_charge_cycle_node(data_library, cur_node->charge_rate);
+        charge_node->charge_epoch = charge_node->discharge_epoch = charge_node->end_epoch =
+          lst_state.epoch + DATA_EPOCH_OFFSET;
       }
       if (lst_set_type == TypeDischarging || cur_type == TypeCharging) {
         if (!charge_node) {
-          charge_node = prv_create_charge_cycle_node(data_library);
+          charge_node = prv_create_charge_cycle_node(data_library, cur_node->charge_rate);
         }
         charge_node->discharge_epoch = lst_state.epoch + DATA_EPOCH_OFFSET;
         charge_node->avg_charge_rate = charge_rate_avg / charge_rate_count;
@@ -382,9 +385,11 @@ static void prv_calculate_charge_cycles(DataLibrary *data_library, uint16_t max_
     // index
     lst_state = cur_state;
     cur_node = prv_list_get_data_node(data_library, index++);
+    // filter to remove short cycles
+    prv_filter_charge_cycles(data_library, false);
   }
-  // filter to remove short cycles
-  prv_filter_charge_cycles(data_library);
+  // final filter to remove last cycle if too short
+  prv_filter_charge_cycles(data_library, true);
 }
 
 // Read data from persistent storage into a linked list
@@ -493,7 +498,7 @@ static void prv_process_save_state(DataLibrary *data_library, SaveState save_sta
   if (lst_node) {
     if (lst_node->charging || new_node->charging ||
       !lst_node->contiguous || !new_node->contiguous) {
-      prv_calculate_charge_cycles(data_library, 1);
+      prv_calculate_charge_cycles(data_library, 3);
     }
   }
   // send the data to the phone with data logging
@@ -609,7 +614,7 @@ int32_t data_get_run_time(DataLibrary *data_library, uint16_t index) {
   }
   ChargeCycleNode *cur_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index(
     (Node*)data_library->cycle_head_node, load_index);
-  if (!cur_node || (index == 0 && cur_node->end_epoch != 0)) {
+  if (!cur_node || (!index && cur_node->end_epoch) || !cur_node->discharge_epoch) {
     return -1;
   } else if (cur_node->end_epoch == 0) {
     return time(NULL) - cur_node->discharge_epoch;
@@ -792,7 +797,7 @@ void data_reload(DataLibrary *data_library) {
     prv_first_launch_prep(data_library);
   } else {
     prv_persist_read_data_block(data_library, 0);
-    prv_calculate_charge_cycles(data_library, CYCLE_LINKED_LIST_MAX_SIZE);
+    prv_calculate_charge_cycles(data_library, CYCLE_LINKED_LIST_MIN_SIZE);
   }
 }
 
@@ -813,7 +818,7 @@ DataLibrary *data_initialize(void) {
     prv_first_launch_prep(data_library);
   } else {
     prv_persist_read_data_block(data_library, 0);
-    prv_calculate_charge_cycles(data_library, CYCLE_LINKED_LIST_MAX_SIZE);
+    prv_calculate_charge_cycles(data_library, CYCLE_LINKED_LIST_MIN_SIZE);
   }
   return data_library;
 }
