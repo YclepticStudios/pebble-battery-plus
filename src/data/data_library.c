@@ -23,7 +23,7 @@
 #define DATA_LOGGING_TAG 5155346        //< Tag used to identify data once on phone
 // Thresholds
 #define CHARGING_MIN_LENGTH 60          //< Minimum duration while charging to register (sec)
-#define DISCHARGING_MIN_LENGTH 3600     //< Minimum duration when discharging to register (sec)
+#define DISCHARGING_MIN_LENGTH 7200     //< Minimum duration when discharging to register (sec)
 #define DISCONTIGUOUS_MIN_LENGTH 0      //< Minimum length of discontiguous region to register (sec)
 
 
@@ -77,7 +77,7 @@ typedef struct DataLibrary {
   uint16_t                head_node_index;          //< The index of the head node into the data
   DataNode                *head_node;               //< The head node for linked list, newest first
   uint16_t                cycle_node_count;         //< Number of nodes in charge cycle linked list
-  DataNode                *cycle_head_node;         //< Charge cycle linked list head node
+  ChargeCycleNode         *cycle_head_node;         //< Charge cycle linked list head node
   bool                    data_is_contiguous;       //< Whether worker was shut off since last pt
   DataLoggingSessionRef   data_logging_session;     //< Data logging session to send data to phone
 } DataLibrary;
@@ -273,6 +273,27 @@ static int32_t prv_calculate_charge_rate(SaveState old_state, SaveState new_stat
   }
 }
 
+// Filter ChargeCycleNodes removing ones with too short run times or charge times
+static void prv_filter_charge_cycles(DataLibrary *data_library) {
+  // loop over nodes and find matching index
+  ChargeCycleNode **tmp_node = &data_library->cycle_head_node;
+  ChargeCycleNode *cur_node = data_library->cycle_head_node;
+  while (cur_node) {
+    // check if too short a duration
+    if (cur_node->end_epoch &&
+      cur_node->end_epoch - cur_node->discharge_epoch < DISCHARGING_MIN_LENGTH) {
+      // delete the node
+      (*tmp_node) = cur_node->next;
+      free(cur_node);
+      cur_node = (*tmp_node);
+      data_library->cycle_node_count--;
+    } else {
+      tmp_node = &cur_node->next;
+      cur_node = cur_node->next;
+    }
+  }
+}
+
 // Create a ChargeCycleNode and add it to the linked list
 static ChargeCycleNode* prv_create_charge_cycle_node(DataLibrary *data_library) {
     ChargeCycleNode *charge_node = MALLOC(sizeof(ChargeCycleNode));
@@ -286,73 +307,66 @@ static ChargeCycleNode* prv_create_charge_cycle_node(DataLibrary *data_library) 
 static void prv_calculate_charge_cycles(DataLibrary *data_library, uint16_t max_cycle_count) {
   // clear any existing charge cycles
   prv_linked_list_destroy((Node**)&data_library->cycle_head_node, &data_library->cycle_node_count);
-  // data properties
-  bool contiguous;
-  int32_t last_transition = time(NULL);
+  // data type
+  typedef enum DataType { TypeCharging, TypeDischarging, TypeNotContiguous, TypeFirstRun } DataType;
+  DataType cur_type, lst_type = TypeFirstRun, lst_set_type = TypeFirstRun;
+  // create new ChargeCycleNode
+  ChargeCycleNode *charge_node = NULL;
   uint16_t charge_rate_count = 0;
   int32_t charge_rate_avg = 0;
-  typedef enum DataType { TypeNotContiguous, TypeCharging, TypeDischarging, TypeFirstRun } DataType;
-  DataType cur_type = TypeFirstRun, next_type;
-  int32_t min_length_threshold[] = { DISCONTIGUOUS_MIN_LENGTH, CHARGING_MIN_LENGTH,
-    DISCHARGING_MIN_LENGTH, 0 };
-  ChargeCycleNode *charge_node = NULL;
-  // prep for looping over data
+  // loop over data
   uint16_t index = 0;
   DataNode *cur_node = prv_list_get_data_node(data_library, index++);
-  DataNode *next_node = prv_list_get_data_node(data_library, index++);
-  SaveState cur_state, next_state;
-  prv_set_save_state_from_data_node(&cur_state, cur_node);
-  // loop over data
-  while (cur_node && next_node && data_library->cycle_node_count <= max_cycle_count) {
-    // get if contiguous
-    prv_set_save_state_from_data_node(&next_state, next_node);
-    contiguous = prv_are_save_states_contiguous(next_state, cur_state, next_node->charge_rate);
-    // get data type
-    if (!contiguous) {
-      next_type = TypeNotContiguous;
-    } else if (next_node->charging) {
-      next_type = TypeCharging;
+  SaveState cur_state, lst_state = { .epoch = 0 };
+  while (cur_node && data_library->cycle_node_count < max_cycle_count) {
+    // calculate data type
+    prv_set_save_state_from_data_node(&cur_state, cur_node);
+    if (index == 0) {
+      cur_type = TypeFirstRun;
+    } else if (!prv_are_save_states_contiguous(cur_state, lst_state, cur_node->charge_rate)) {
+      cur_type = TypeNotContiguous;
+    } else if (cur_node->charging) {
+      cur_type = TypeCharging;
     } else {
-      next_type = TypeDischarging;
-      charge_rate_avg += next_node->charge_rate;
+      cur_type = TypeDischarging;
+      charge_rate_avg += cur_node->charge_rate;
       charge_rate_count++;
+    } if (lst_type == TypeFirstRun) {
+      lst_type = lst_set_type = cur_type;
     }
-    // if change in type
-    if (next_type != cur_type) {
-      // filter out small transitions
-      if (last_transition - cur_node->epoch >= min_length_threshold[cur_type]) {
-        // apply truth table of what to do for different transitions
-        if ((cur_type == TypeCharging || next_type == TypeNotContiguous) &&
-          cur_type != TypeFirstRun) {
-          if (!charge_node) {
-            charge_node = prv_create_charge_cycle_node(data_library);
-          }
-          charge_node->charge_epoch = cur_node->epoch;
-        }
-        if (cur_type == TypeNotContiguous ||
-          (cur_type == TypeCharging && next_type == TypeDischarging)) {
+    // check if at type transition
+    if (cur_type != lst_set_type) {
+      // apply truth table of what to do for different transitions
+      if ((lst_set_type == TypeCharging || cur_type == TypeNotContiguous) &&
+        lst_set_type != TypeFirstRun) {
+        if (!charge_node) {
           charge_node = prv_create_charge_cycle_node(data_library);
-          charge_node->end_epoch = cur_node->epoch;
         }
-        if (cur_type == TypeDischarging || next_type == TypeCharging) {
-          if (!charge_node) {
-            charge_node = prv_create_charge_cycle_node(data_library);
-          }
-          charge_node->discharge_epoch = cur_node->epoch;
-          charge_node->avg_charge_rate = charge_rate_avg / charge_rate_count;
-          charge_rate_avg = charge_rate_count = 0;
-        }
-        // store new type
-        cur_type = next_type;
+        charge_node->charge_epoch = lst_state.epoch + DATA_EPOCH_OFFSET;
       }
-      // update last transition time
-      last_transition = cur_node->epoch;
+      if (lst_set_type == TypeNotContiguous ||
+          (lst_set_type == TypeCharging && cur_type == TypeDischarging)) {
+        charge_node = prv_create_charge_cycle_node(data_library);
+        charge_node->end_epoch = lst_state.epoch + DATA_EPOCH_OFFSET;
+      }
+      if (lst_set_type == TypeDischarging || cur_type == TypeCharging) {
+        if (!charge_node) {
+          charge_node = prv_create_charge_cycle_node(data_library);
+        }
+        charge_node->discharge_epoch = lst_state.epoch + DATA_EPOCH_OFFSET;
+        charge_node->avg_charge_rate = charge_rate_avg / charge_rate_count;
+        charge_rate_avg = charge_rate_count = 0;
+      }
+      // log change
+      lst_set_type = cur_type;
+      lst_type = cur_type;
     }
     // index
-    cur_state = next_state;
-    cur_node = next_node;
-    next_node = prv_list_get_data_node(data_library, index++);
+    lst_state = cur_state;
+    cur_node = prv_list_get_data_node(data_library, index++);
   }
+  // filter to remove short cycles
+  prv_filter_charge_cycles(data_library);
 }
 
 // Read data from persistent storage into a linked list
@@ -571,8 +585,12 @@ int32_t data_get_record_run_time(DataLibrary *data_library) {
 
 // Get the run time at a certain charge cycle returns negative value if no data
 int32_t data_get_run_time(DataLibrary *data_library, uint16_t index) {
+  uint16_t load_index = index;
+  if (load_index && data_library->cycle_head_node && data_library->cycle_head_node->end_epoch) {
+    load_index--;
+  }
   ChargeCycleNode *cur_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index(
-    (Node*)data_library->cycle_head_node, index);
+    (Node*)data_library->cycle_head_node, load_index);
   if (!cur_node || (index == 0 && cur_node->end_epoch != 0)) {
     return -1;
   } else if (cur_node->end_epoch == 0) {
@@ -589,6 +607,9 @@ int32_t data_get_max_life(DataLibrary *data_library, uint16_t index) {
     DataNode cur_node = prv_get_current_data_node(data_library);
     return cur_node.charge_rate * (-100);
   } else {
+    if (data_library->cycle_head_node && data_library->cycle_head_node->end_epoch) {
+      index--;
+    }
     ChargeCycleNode *cur_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index(
       (Node*)data_library->cycle_head_node, index);
     if (!cur_node || !cur_node->avg_charge_rate) {
@@ -647,6 +668,9 @@ uint16_t data_get_charge_cycle_count_including_seconds(DataLibrary *data_library
     if (cur_node->charge_epoch < end_time) { break; }
     cur_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index(
       (Node*)data_library->cycle_head_node, index);
+  }
+  if (data_library->cycle_head_node && data_library->cycle_head_node->end_epoch) {
+    index++;
   }
   return index;
 }
