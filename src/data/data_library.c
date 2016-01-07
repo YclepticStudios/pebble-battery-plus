@@ -23,8 +23,7 @@
 #define DATA_LOGGING_TAG 5155346        //< Tag used to identify data once on phone
 // Thresholds
 #define CHARGING_MIN_LENGTH 60          //< Minimum duration while charging to register (sec)
-#define DISCHARGING_MIN_LENGTH 7200     //< Minimum duration when discharging to register (sec)
-#define DISCONTIGUOUS_MIN_LENGTH 0      //< Minimum length of discontiguous region to register (sec)
+#define DISCHARGING_MIN_FRACTION 1 / 30 //< Minimum fraction of default run time to register
 
 
 // Structure containing compressed data in the form it will be saved in
@@ -276,19 +275,38 @@ static int32_t prv_calculate_charge_rate(SaveState old_state, SaveState new_stat
 // Filter ChargeCycleNodes removing ones with too short run times or charge times
 static void prv_filter_charge_cycles(DataLibrary *data_library) {
   // loop over nodes and find matching index
+  bool pending_delete = false;
   ChargeCycleNode **tmp_node = &data_library->cycle_head_node;
-  ChargeCycleNode *cur_node = data_library->cycle_head_node;
+  ChargeCycleNode *lst_node = NULL, *cur_node = data_library->cycle_head_node;
   while (cur_node) {
     // check if too short a duration
     if (cur_node->end_epoch &&
-      cur_node->end_epoch - cur_node->discharge_epoch < DISCHARGING_MIN_LENGTH) {
-      // delete the node
+        cur_node->end_epoch - cur_node->discharge_epoch <
+        prv_get_default_charge_rate() * (-100) * DISCHARGING_MIN_FRACTION) {
+      // extend previous node if contiguous
+      if (lst_node && cur_node->end_epoch == lst_node->charge_epoch) {
+        lst_node->charge_epoch = cur_node->charge_epoch;
+      }
+      pending_delete = true;
+    } else if (lst_node && lst_node->discharge_epoch &&
+      lst_node->discharge_epoch - lst_node->charge_epoch < CHARGING_MIN_LENGTH) {
+      // extend previous node if contiguous
+      if (cur_node->end_epoch == lst_node->charge_epoch) {
+        lst_node->charge_epoch = cur_node->charge_epoch;
+        lst_node->discharge_epoch = cur_node->discharge_epoch;
+      }
+      pending_delete = true;
+    }
+    // index and/or delete nodes
+    if (pending_delete) {
       (*tmp_node) = cur_node->next;
       free(cur_node);
       cur_node = (*tmp_node);
       data_library->cycle_node_count--;
+      pending_delete = false;
     } else {
       tmp_node = &cur_node->next;
+      lst_node = cur_node;
       cur_node = cur_node->next;
     }
   }
