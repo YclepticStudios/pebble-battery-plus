@@ -52,25 +52,28 @@ static void prv_render_selected_text(GContext *ctx, GRect bounds, uint16_t click
   char *hint_text;
   GColor selection_color;
   int32_t selection_value = data_get_life_remaining(data_library);
-  uint16_t tmp_max_modes = 2 + (selection_value > DATA_LEVEL_MED_THRESH_SEC) +
-                       (selection_value > DATA_LEVEL_LOW_THRESH_SEC);
+  uint16_t tmp_max_modes = 2;
+  for (uint8_t index = 0; index < data_get_alert_count(data_library); index++) {
+    if (selection_value > data_get_alert_threshold(data_library, index)) {
+      tmp_max_modes++;
+    }
+  }
   uint16_t cur_mode = click_count % tmp_max_modes;
   if (cur_mode == 0) {
     hint_text = "Remaining";
-    GColor ring_colors[] = { COLOR_RING_LOW, COLOR_RING_MED, COLOR_RING_NORM };
-    selection_color = ring_colors[tmp_max_modes - 2];
+    if (tmp_max_modes - 2 == data_get_alert_count(data_library)) {
+      selection_color = COLOR_RING_NORM;
+    } else {
+      selection_color = data_get_alert_color(data_library, tmp_max_modes - 2);
+    }
   } else if (cur_mode == 1) {
     hint_text = "Run Time";
     selection_color = COLOR_RING_EMPTY;
     selection_value = data_get_run_time(data_library, 0);
-  } else if (cur_mode == 2) {
-    hint_text = "Low Alert";
-    selection_color = COLOR_RING_LOW;
-    selection_value = DATA_LEVEL_LOW_THRESH_SEC;
   } else {
-    hint_text = "Med Alert";
-    selection_color = COLOR_RING_MED;
-    selection_value = DATA_LEVEL_MED_THRESH_SEC;
+    hint_text = data_get_alert_text(data_library, cur_mode - 2);
+    selection_color = data_get_alert_color(data_library, cur_mode - 2);
+    selection_value = data_get_alert_threshold(data_library, cur_mode - 2);
   }
   // get text
   int days = selection_value / SEC_IN_DAY;
@@ -112,11 +115,26 @@ static void prv_render_selected_text(GContext *ctx, GRect bounds, uint16_t click
 static void prv_render_ring(GContext *ctx, GRect bounds, DataLibrary *data_library) {
   // calculate angles for ring color change positions
   int32_t max_life_sec = data_get_max_life(data_library, 0);
-  int32_t angle_low = TRIG_MAX_ANGLE * DATA_LEVEL_LOW_THRESH_SEC / max_life_sec;
-  int32_t angle_med = (int64_t)TRIG_MAX_ANGLE * DATA_LEVEL_MED_THRESH_SEC / max_life_sec;
-  int32_t angle_level = TRIG_MAX_ANGLE * data_get_battery_percent(data_library) / 100;
-  angle_low = angle_level < angle_low ? angle_level : angle_low;
-  angle_med = angle_level < angle_med ? angle_level : angle_med;
+  uint8_t angle_count = 0;
+  int32_t angles[DATA_MAX_ALERT_COUNT + 2];
+  // calculate angles
+  angles[angle_count++] = TRIG_MAX_ANGLE * data_get_battery_percent(data_library) / 100;
+  angles[angle_count++] = 0;
+  for (uint8_t index = 0; index < data_get_alert_count(data_library); index++) {
+    angles[angle_count] = TRIG_MAX_ANGLE * data_get_alert_threshold(data_library, index) /
+      max_life_sec;
+    // only allow angles which are less then the current percent angle
+    if (angles[angle_count] < angles[0]) {
+      angle_count++;
+    }
+  }
+  // lookup colors
+  GColor colors[ARRAY_LENGTH(angles)];
+  colors[0] = COLOR_RING_EMPTY;
+  for (uint8_t index = 1; index < angle_count - 1; index++) {
+    colors[index] = data_get_alert_color(data_library, index);
+  }
+  colors[angle_count - 1] = COLOR_RING_NORM;
   // calculate outer ring bounds
   GRect ring_bounds = bounds;
   int32_t gr_angle = atan2_lookup(ring_bounds.size.h, ring_bounds.size.w);
@@ -130,15 +148,11 @@ static void prv_render_ring(GContext *ctx, GRect bounds, DataLibrary *data_libra
     ring_in_bounds.size.h : ring_in_bounds.size.w;
   radius -= small_side / 2;
   // draw rings
-  graphics_context_set_fill_color(ctx, COLOR_RING_LOW);
-  graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius, 0, angle_low);
-  graphics_context_set_fill_color(ctx, COLOR_RING_MED);
-  graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius, angle_low, angle_med);
-  graphics_context_set_fill_color(ctx, COLOR_RING_NORM);
-  graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius, angle_med, angle_level);
-  graphics_context_set_fill_color(ctx, COLOR_RING_EMPTY);
-  graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius, angle_level,
-    TRIG_MAX_ANGLE);
+  for (uint8_t index = 0; index < angle_count; index++) {
+    graphics_context_set_fill_color(ctx, colors[index]);
+    graphics_fill_radial(ctx, ring_bounds, GOvalScaleModeFillCircle, radius, angles[index],
+      angles[(index + 1) % angle_count]);
+  }
   // draw border and center
   graphics_context_set_stroke_color(ctx, GColorBlack);
   graphics_context_set_fill_color(ctx, GColorWhite);

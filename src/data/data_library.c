@@ -12,19 +12,46 @@
 #include "data_library.h"
 #include "../utility.h"
 
+// Persistent Keys
+#define PERSIST_DATA_KEY 1000           //< The persistent storage key where the data write starts
+#define PERSIST_RECORD_LIFE_KEY 999     //< Persistent storage key where the record life is stored
+#define PERSIST_ALERTS_KEY 998          //< Persistent storage key for number of alerts scheduled
+#define DATA_LOGGING_TAG 5155346        //< Tag used to identify data once on phone
 // Constants
 #define DATA_VERSION 0                  //< The current persistent storage format version
+#define LOW_THRESH_DEFAULT 4 * SEC_IN_HR  //< Default threshold for low level
+#define MED_THRESH_DEFAULT SEC_IN_DAY   //< Default threshold for medium level
 #define DATA_BLOCK_SAVE_STATE_COUNT 50  //< Number of SaveStates that fit in one persistent write
 #define DATA_EPOCH_OFFSET 1420070400    //< Jan 1, 2015 at 0:00:00, reduces size when saving data
 #define LINKED_LIST_MAX_SIZE DATA_BLOCK_SAVE_STATE_COUNT * 3 //< Max size of linked list
 #define CYCLE_LINKED_LIST_MIN_SIZE 9    //< The maximum number of nodes in the charge cycle list
-#define PERSIST_DATA_KEY 1000           //< The persistent storage key where the data write starts
-#define PERSIST_RECORD_LIFE_KEY 999     //< Persistent storage key where the record life is stored
-#define DATA_LOGGING_TAG 5155346        //< Tag used to identify data once on phone
 // Thresholds
 #define CHARGING_MIN_LENGTH 60          //< Minimum duration while charging to register (sec)
 #define DISCHARGING_MIN_FRACTION 1 / 30 //< Minimum fraction of default run time to register
 
+
+// Alert colors and text for different counts and indices, accessed as [count][index]
+// smaller index is closer to empty time (smaller threshold)
+#ifndef PEBBLE_BACKGROUND_WORKER
+static uint8_t prv_alert_colors[][4] = {
+  { GColorRedARGB8 },
+  { GColorRedARGB8, GColorYellowARGB8 },
+  { GColorRedARGB8, GColorOrangeARGB8, GColorYellowARGB8 },
+  { GColorRedARGB8, GColorOrangeARGB8, GColorChromeYellowARGB8, GColorYellowARGB8 }
+};
+#endif
+static char *prv_alert_text[][4] = {
+  { "Low Alert" },
+  { "Med Alert", "Low Alert" },
+  { "1st Alert", "Med Alert", "Low Alert" },
+  { "1st Alert", "2nd Alert", "Med Alert", "Low Alert" }
+};
+
+// Battery alert data structure
+typedef struct AlertData {
+  uint8_t   scheduled_count;                    //< The total number of currently scheduled alerts
+  int32_t   thresholds[DATA_MAX_ALERT_COUNT];   //< Number of seconds before empty for alert
+} AlertData;
 
 // Structure containing compressed data in the form it will be saved in
 typedef struct SaveState {
@@ -75,9 +102,12 @@ typedef struct DataLibrary {
   uint16_t                node_count;               //< The number of nodes in the linked list
   uint16_t                head_node_index;          //< The index of the head node into the data
   DataNode                *head_node;               //< The head node for linked list, newest first
+  bool                    data_is_contiguous;       //< Whether worker was shut off since last pt
   uint16_t                cycle_node_count;         //< Number of nodes in charge cycle linked list
   ChargeCycleNode         *cycle_head_node;         //< Charge cycle linked list head node
-  bool                    data_is_contiguous;       //< Whether worker was shut off since last pt
+  AlertData               alert_data;               //< Data for battery low alerts
+  AppTimer                *app_timers[DATA_MAX_ALERT_COUNT];  //< WakeupId for each alert
+  BatteryAlertCallback    alert_callback;           //< The function to call when an alert goes off
   DataLoggingSessionRef   data_logging_session;     //< Data logging session to send data to phone
 } DataLibrary;
 
@@ -89,6 +119,14 @@ static void prv_persist_read_data_block(DataLibrary *data_library, uint16_t inde
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Private Functions
 //
+
+// AppTimer callback for alerts
+static void prv_app_timer_alert_callback(void *data) {
+  DataLibrary *data_library = data;
+  if (data_library->alert_callback) {
+    data_library->alert_callback();
+  }
+}
 
 // Set DataNode properties from SaveState
 static void prv_set_data_node_from_save_state(DataNode *data_node, SaveState *save_state) {
@@ -469,7 +507,6 @@ static void prv_process_save_state(DataLibrary *data_library, SaveState save_sta
     persist_read_int(PERSIST_RECORD_LIFE_KEY) < run_time) {
     persist_write_int(PERSIST_RECORD_LIFE_KEY, run_time);
   }
-  // TODO: Schedule wake-up alert
   // add new node to start of linked list
   DataNode *new_node = MALLOC(sizeof(DataNode));
   prv_set_data_node_from_save_state(new_node, &save_state);
@@ -501,6 +538,8 @@ static void prv_process_save_state(DataLibrary *data_library, SaveState save_sta
       prv_calculate_charge_cycles(data_library, 3);
     }
   }
+  // schedule wake-up low battery alert
+  data_refresh_all_alerts(data_library);
   // send the data to the phone with data logging
 #ifdef PEBBLE_BACKGROUND_WORKER
   data_logging_log(data_library->data_logging_session, new_node, 1);
@@ -563,6 +602,10 @@ static void prv_persist_convert_legacy_data(DataLibrary *data_library) {
 
 // Initialize to default values on first launch
 static void prv_first_launch_prep(DataLibrary *data_library) {
+  // set alerts
+  memset(&data_library->alert_data, 0, sizeof(AlertData));
+  data_schedule_alert(data_library, LOW_THRESH_DEFAULT);
+  data_schedule_alert(data_library, MED_THRESH_DEFAULT);
   // write out starting persistent storage location
   persist_write_int(PERSIST_DATA_KEY, PERSIST_DATA_KEY + 1);
   // port any legacy data
@@ -579,6 +622,101 @@ static void prv_first_launch_prep(DataLibrary *data_library) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // API Interface
 //
+
+#ifndef PEBBLE_BACKGROUND_WORKER
+// Get the color of an alert from a table of colors based on index
+//! Note: This function reads from persistent storage if a DataLibrary is NULL
+GColor data_get_alert_color(DataLibrary *data_library, uint8_t index) {
+  return (GColor){ .argb = prv_alert_colors[data_get_alert_count(data_library)][index] };
+}
+#endif
+
+//! Get the text of an alert from a table of text based on index
+//! Note: This function reads from persistent storage if a DataLibrary is NULL
+char *data_get_alert_text(DataLibrary *data_library, uint8_t index) {
+  return prv_alert_text[data_get_alert_count(data_library)][index];
+}
+
+// Get the alert level threshold in seconds, this is the time remaining when the alert goes off
+int32_t data_get_alert_threshold(DataLibrary *data_library, uint8_t index) {
+  return data_library->alert_data.thresholds[index];
+}
+
+// Get the number of scheduled alerts at the current time
+//! Note: This function reads from persistent storage if a DataLibrary is NULL
+uint8_t data_get_alert_count(DataLibrary *data_library) {
+  if (data_library) {
+    return data_library->alert_data.scheduled_count;
+  } else {
+    AlertData alert_data;
+    persist_read_data(PERSIST_ALERTS_KEY, &alert_data, persist_get_size(PERSIST_ALERTS_KEY));
+    return alert_data.scheduled_count;
+  }
+}
+
+// Refresh all alerts and schedule timers which will do the actual waking up
+void data_refresh_all_alerts(DataLibrary *data_library) {
+  AlertData *alert_data = &data_library->alert_data;
+  // load from persistent storage
+  persist_read_data(PERSIST_ALERTS_KEY, alert_data, persist_get_size(PERSIST_ALERTS_KEY));
+  // cancel all existing alerts and reschedule
+  time_t delay_time, time_remaining = data_get_life_remaining(data_library);
+  for (uint8_t index = 0; index < alert_data->scheduled_count; index++) {
+    app_timer_cancel(data_library->app_timers[index]);
+    // TODO: If new time is in past and old time is in future, display the alert
+    delay_time = time_remaining - alert_data->thresholds[index];
+    data_library->app_timers[index] = app_timer_register(delay_time * 1000,
+      prv_app_timer_alert_callback, NULL);
+  }
+}
+
+// Create a new alert at a certain threshold
+void data_schedule_alert(DataLibrary *data_library, int32_t seconds) {
+  AlertData *alert_data = &data_library->alert_data;
+  // reload from persistent storage
+  persist_read_data(PERSIST_ALERTS_KEY, alert_data, persist_get_size(PERSIST_ALERTS_KEY));
+  // loop over alerts and add in proper position (sorted short to long)
+  uint8_t index;
+  for (index = 0; index < alert_data->scheduled_count; index++) {
+    if (seconds < alert_data->thresholds[index]) { break; }
+  }
+  // if full delete last alert
+  if (alert_data->scheduled_count >= DATA_MAX_ALERT_COUNT) {
+    data_unschedule_alert(data_library, DATA_MAX_ALERT_COUNT - 1);
+  }
+  // move alerts to make room
+  memmove(&alert_data->thresholds[index + 1], &alert_data->thresholds[index],
+    (DATA_MAX_ALERT_COUNT - index - 1) * sizeof(alert_data->thresholds[0]));
+  // insert new alert
+  alert_data->thresholds[index] = seconds;
+  alert_data->scheduled_count++;
+  // write out the new data
+  persist_write_data(PERSIST_ALERTS_KEY, alert_data, sizeof(AlertData));
+  // send message to the other part of the app to refresh data (background->foreground) and vv.
+  AppWorkerMessage msg_data = { .data0 = 1 };
+  app_worker_send_message(0, &msg_data);
+}
+
+// Destroy an existing alert at a certain index
+void data_unschedule_alert(DataLibrary *data_library, uint8_t index) {
+  AlertData *alert_data = &data_library->alert_data;
+  // reload from persistent storage
+  persist_read_data(PERSIST_ALERTS_KEY, alert_data, persist_get_size(PERSIST_ALERTS_KEY));
+  // move memory back over that position
+  memmove(&alert_data->thresholds[index], &alert_data->thresholds[index + 1],
+    (DATA_MAX_ALERT_COUNT - index - 1) * sizeof(alert_data->thresholds[0]));
+  alert_data->scheduled_count--;
+  // write out the new data
+  persist_write_data(PERSIST_ALERTS_KEY, alert_data, sizeof(AlertData));
+  // send message to the other part of the app to refresh data (background->foreground) and vv.
+  AppWorkerMessage msg_data = { .data0 = 1 };
+  app_worker_send_message(0, &msg_data);
+}
+
+// Register callback for when an alert goes off
+void data_register_alert_callback(DataLibrary *data_library, BatteryAlertCallback callback) {
+  data_library->alert_callback = callback;
+}
 
 // Get the time the watch needs to be charged by
 int32_t data_get_charge_by_time(DataLibrary *data_library) {
@@ -809,6 +947,9 @@ DataLibrary *data_initialize(void) {
   data_library->head_node_index = 0;
   data_library->head_node = NULL;
   data_library->data_is_contiguous = false;
+  persist_read_data(PERSIST_ALERTS_KEY, &data_library->alert_data,
+    persist_get_size(PERSIST_ALERTS_KEY));
+  data_library->alert_callback = NULL;
 #ifdef PEBBLE_BACKGROUND_WORKER
   data_library->data_logging_session = data_logging_create(DATA_LOGGING_TAG,
     DATA_LOGGING_BYTE_ARRAY, sizeof(DataNode), true);
@@ -819,6 +960,7 @@ DataLibrary *data_initialize(void) {
   } else {
     prv_persist_read_data_block(data_library, 0);
     prv_calculate_charge_cycles(data_library, CYCLE_LINKED_LIST_MIN_SIZE);
+    data_refresh_all_alerts(data_library);
   }
   return data_library;
 }

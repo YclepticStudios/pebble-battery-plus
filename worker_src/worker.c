@@ -17,6 +17,16 @@
 // Main variables
 static DataLibrary *data_library;
 
+// Battery alert raised callback
+static void prv_battery_alert_handler(void) {
+  worker_launch_app();
+}
+
+// Worker message callback
+static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
+  // no need to read what is sent, just update the alerts
+  data_refresh_all_alerts(data_library);
+}
 
 // Battery state change callback
 static void prv_battery_state_change_handler(BatteryChargeState battery_state) {
@@ -26,6 +36,8 @@ static void prv_battery_state_change_handler(BatteryChargeState battery_state) {
 // Initialize
 static void prv_initialize(void) {
   data_library = data_initialize();
+  data_register_alert_callback(data_library, prv_battery_alert_handler);
+  app_worker_message_subscribe(prv_worker_message_handler);
   battery_state_service_subscribe(prv_battery_state_change_handler);
   // run initial point through
   data_process_new_battery_state(data_library, battery_state_service_peek());

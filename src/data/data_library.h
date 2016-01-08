@@ -17,17 +17,66 @@
 #include <pebble.h>
 #endif
 
-// Data constants
-#define DATA_LEVEL_LOW_THRESH_SEC 4 * SEC_IN_HR
-#define DATA_LEVEL_MED_THRESH_SEC SEC_IN_DAY
+//! Constants
+#define DATA_MAX_ALERT_COUNT 4
 
 //! Main data structure
 typedef struct DataLibrary DataLibrary;
+
+//! Alert triggered callback type
+typedef void(* BatteryAlertCallback)(void);
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // API Interface
 //
+
+#ifndef PEBBLE_BACKGROUND_WORKER
+//! Get the color of an alert from a table of colors based on index
+//! Note: This function reads from persistent storage if a DataLibrary is NULL
+//! @param data_library Optional pointer to DataLibrary to prevent persistent storage read
+//! @param index The index of the alert
+//! @return A GColor which represents that level of alert
+GColor data_get_alert_color(DataLibrary *data_library, uint8_t index);
+#endif
+
+//! Get the text of an alert from a table of text based on index
+//! Note: This function reads from persistent storage if a DataLibrary is NULL
+//! @param data_library Optional pointer to DataLibrary to prevent persistent storage read
+//! @param index The index of the alert
+//! @return A pointer to text which represents that level of alert
+char *data_get_alert_text(DataLibrary *data_library, uint8_t index);
+
+//! Get the alert level threshold in seconds, this is the time remaining when the alert goes off
+//! @param data_library A pointer to an existing DataLibrary
+//! @param index The index of the alert
+//! @return The number of seconds the low level is set to
+int32_t data_get_alert_threshold(DataLibrary *data_library, uint8_t index);
+
+//! Get the number of scheduled alerts at the current time
+//! Note: This function reads from persistent storage if a DataLibrary is NULL
+//! @param data_library A pointer to an existing DataLibrary
+//! @return The current number of scheduled alerts
+uint8_t data_get_alert_count(DataLibrary *data_library);
+
+//! Refresh all alerts and schedule timers which will do the actual waking up
+//! @param data_library A pointer to an existing DataLibrary
+void data_refresh_all_alerts(DataLibrary *data_library);
+
+//! Create a new alert at a certain threshold
+//! @param data_library A pointer to an existing DataLibrary
+//! @param seconds The number of seconds before empty that the alert should go off
+void data_schedule_alert(DataLibrary *data_library, int32_t seconds);
+
+//! Destroy an existing alert at a certain index
+//! @param data_library A pointer to an existing DataLibrary
+//! @param index The index of the alert
+void data_unschedule_alert(DataLibrary *data_library, uint8_t index);
+
+//! Register callback for when an alert goes off
+//! @param data_library A pointer to an existing DataLibrary
+//! @param callback The callback to register
+void data_register_alert_callback(DataLibrary *data_library, BatteryAlertCallback callback);
 
 //! Get the time the watch needs to be charged by
 //! @param data_library A pointer to an existing DataLibrary
