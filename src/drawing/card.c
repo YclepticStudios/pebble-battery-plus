@@ -118,6 +118,32 @@ static void prv_layer_update_handler(Layer *layer, GContext *ctx) {
   CardLayer *card_layer = layer_get_data(layer);
   GPoint layer_origin = layer_get_bounds(layer).origin;
   bool layer_is_screen_aligned = gpoint_equal(&layer_origin, &GPointZero);
+  // check more rigorously if the layers are aligned by comparing the screen to the last bitmap
+  if (layer_is_screen_aligned) {
+    // draw pattern onto drawing context
+    GPoint start_point = GPoint(70, 87);
+    GColor pattern[] = {GColorOxfordBlue, GColorImperialPurple, GColorMintGreen, GColorOxfordBlue,
+      GColorMelon, GColorBlack, GColorBulgarianRose, GColorWhite};
+#ifdef PBL_COLOR
+    uint8_t pattern_data[] = {GColorOxfordBlueARGB8, GColorImperialPurpleARGB8,
+      GColorMintGreenARGB8, GColorOxfordBlueARGB8, GColorMelonARGB8, GColorBlackARGB8,
+      GColorBulgarianRoseARGB8, GColorWhiteARGB8};
+#else
+    uint8_t pattern_data[] = {0b00101001};
+#endif
+    for (uint8_t ii = 0; ii < ARRAY_LENGTH(pattern); ii++) {
+      graphics_context_set_stroke_color(ctx, pattern[ii]);
+      graphics_draw_pixel(ctx, GPoint(start_point.x + ii, start_point.y));
+    }
+    // get the frame buffer
+    GBitmap *frame_buff = graphics_capture_frame_buffer(ctx);
+    // check for pattern and determine alignment
+    GBitmapDataRowInfo row_info = gbitmap_get_data_row_info(frame_buff, start_point.y);
+    layer_is_screen_aligned = !memcmp(row_info.data + start_point.x, pattern_data,
+      sizeof(pattern_data));
+    // release frame buffer
+    graphics_release_frame_buffer(ctx, frame_buff);
+  }
   // check if existing buffer
   if (!card_layer->bmp_buff || (card_layer->pending_refresh && layer_is_screen_aligned)) {
     // render card
