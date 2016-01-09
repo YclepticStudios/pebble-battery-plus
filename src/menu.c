@@ -149,13 +149,20 @@ void menu_initialize(DataLibrary *data_library) {
   action_menu_level_add_action(s_data_level, "Export", prv_action_performed_handler,
     (void*)ActionTypeDataExport);
   // create alert level
+  int days, hours;
   uint8_t alert_count = data_get_alert_count(data_library);
+  static char label_buffs[DATA_MAX_ALERT_COUNT][19];
   s_alert_level = action_menu_level_create(alert_count + 1);
   action_menu_level_add_child(s_root_level, s_alert_level, "Alerts");
   ActionMenuLevel *menu_level;
   for (int32_t index = 0; index < alert_count; index++) {
+    // get the label text
+    days = data_get_alert_threshold(data_library, index) / SEC_IN_DAY;
+    hours = data_get_alert_threshold(data_library, index) % SEC_IN_DAY / SEC_IN_HR;
+    snprintf(label_buffs[index], sizeof(label_buffs[index]), "%s\n(%dd %02dh)",
+      data_get_alert_text(data_library, index), days, hours);
     menu_level = action_menu_level_create(2);
-    action_menu_level_add_child(s_alert_level, menu_level, data_get_alert_text(data_library, index));
+    action_menu_level_add_child(s_alert_level, menu_level, label_buffs[index]);
     action_menu_level_add_action(menu_level, "Edit", prv_alert_edit_handler, (void*)index);
     action_menu_level_add_action(menu_level, "Delete", prv_alert_delete_handler, (void*)index);
   }
