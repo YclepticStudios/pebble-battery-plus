@@ -9,12 +9,9 @@
 // @bugs No known bugs
 
 #include "card_render.h"
-#include "../../data/data_library.h"
 #include "../../utility.h"
 
 // Constants
-#define COLOR_RING_LOW PBL_IF_COLOR_ELSE(GColorRed, GColorLightGray)
-#define COLOR_RING_MED PBL_IF_COLOR_ELSE(GColorYellow, GColorLightGray)
 #define COLOR_RING_NORM GColorGreen
 #define COLOR_RING_EMPTY PBL_IF_COLOR_ELSE(GColorLightGray, GColorBlack)
 #define CENTER_STROKE_WIDTH 3

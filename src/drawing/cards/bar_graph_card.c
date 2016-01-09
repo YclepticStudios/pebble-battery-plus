@@ -9,7 +9,6 @@
 // @bugs No known bugs
 
 #include "card_render.h"
-#include "../../data/data_library.h"
 #include "../../utility.h"
 
 // Drawing Constants
