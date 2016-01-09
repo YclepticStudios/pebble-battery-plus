@@ -24,8 +24,9 @@ static void prv_battery_alert_handler(void) {
 
 // Worker message callback
 static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
-  // no need to read what is sent, just update the alerts
-  data_refresh_all_alerts(data_library);
+  if (data->data0 == WorkerMessageBackground) {
+    data_refresh_all_alerts(data_library);
+  }
 }
 
 // Battery state change callback

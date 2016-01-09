@@ -20,6 +20,9 @@
 //! Constants
 #define DATA_MAX_ALERT_COUNT 4
 
+//! AppMessage modes
+typedef enum { WorkerMessageForeground, WorkerMessageBackground } WorkerMessageType;
+
 //! Main data structure
 typedef struct DataLibrary DataLibrary;
 

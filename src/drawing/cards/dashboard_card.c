@@ -121,18 +121,19 @@ static void prv_render_ring(GContext *ctx, GRect bounds, DataLibrary *data_libra
   angles[angle_count++] = TRIG_MAX_ANGLE * data_get_battery_percent(data_library) / 100;
   angles[angle_count++] = 0;
   for (uint8_t index = 0; index < data_get_alert_count(data_library); index++) {
-    angles[angle_count] = TRIG_MAX_ANGLE * data_get_alert_threshold(data_library, index) /
+    angles[angle_count] = TRIG_MAX_ANGLE * (int64_t)data_get_alert_threshold(data_library, index) /
       max_life_sec;
-    // only allow angles which are less then the current percent angle
-    if (angles[angle_count] < angles[0]) {
-      angle_count++;
+    // reduce in size to the maximum angle
+    if (angles[angle_count] > angles[0]) {
+      angles[angle_count] = angles[0];
     }
+    angle_count++;
   }
   // lookup colors
   GColor colors[ARRAY_LENGTH(angles)];
   colors[0] = COLOR_RING_EMPTY;
   for (uint8_t index = 1; index < angle_count - 1; index++) {
-    colors[index] = data_get_alert_color(data_library, index);
+    colors[index] = data_get_alert_color(data_library, index - 1);
   }
   colors[angle_count - 1] = COLOR_RING_NORM;
   // calculate outer ring bounds

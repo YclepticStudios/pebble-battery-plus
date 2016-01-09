@@ -42,9 +42,9 @@ static uint8_t prv_alert_colors[][4] = {
 #endif
 static char *prv_alert_text[][4] = {
   { "Low Alert" },
-  { "Med Alert", "Low Alert" },
-  { "1st Alert", "Med Alert", "Low Alert" },
-  { "1st Alert", "2nd Alert", "Med Alert", "Low Alert" }
+  { "Low Alert", "Med Alert" },
+  { "Low Alert", "Med Alert", "1st Alert" },
+  { "Low Alert", "Med Alert", "2nd Alert", "1st Alert" }
 };
 
 // Battery alert data structure
@@ -512,9 +512,9 @@ static void prv_process_save_state(DataLibrary *data_library, SaveState save_sta
   prv_set_data_node_from_save_state(new_node, &save_state);
   new_node->next = NULL;
   DataNode *lst_node = prv_list_get_data_node(data_library, 0);
-  SaveState lst_save_state;
-  prv_set_save_state_from_data_node(&lst_save_state, lst_node);
   if (lst_node) {
+    SaveState lst_save_state;
+    prv_set_save_state_from_data_node(&lst_save_state, lst_node);
     new_node->charge_rate = prv_calculate_charge_rate(lst_save_state, save_state,
       lst_node->charge_rate);
   } else {
@@ -523,11 +523,13 @@ static void prv_process_save_state(DataLibrary *data_library, SaveState save_sta
   prv_linked_list_add_node_start((Node**)&data_library->head_node, (Node*)new_node,
     &data_library->node_count);
   // destroy last node
-  DataNode *old_node = prv_list_get_data_node(data_library, data_library->node_count - 2);
-  if (old_node) {
-    free(old_node->next);
-    old_node->next = NULL;
-    data_library->node_count--;
+  if (data_library->node_count > DATA_BLOCK_SAVE_STATE_COUNT) {
+    DataNode *old_node = prv_list_get_data_node(data_library, data_library->node_count - 2);
+    if (old_node) {
+      free(old_node->next);
+      old_node->next = NULL;
+      data_library->node_count--;
+    }
   }
   // persist the data point
   prv_persist_write_data_node(data_library, new_node);
@@ -627,14 +629,14 @@ static void prv_first_launch_prep(DataLibrary *data_library) {
 // Get the color of an alert from a table of colors based on index
 //! Note: This function reads from persistent storage if a DataLibrary is NULL
 GColor data_get_alert_color(DataLibrary *data_library, uint8_t index) {
-  return (GColor){ .argb = prv_alert_colors[data_get_alert_count(data_library)][index] };
+  return (GColor){ .argb = prv_alert_colors[data_get_alert_count(data_library) - 1][index] };
 }
 #endif
 
 //! Get the text of an alert from a table of text based on index
 //! Note: This function reads from persistent storage if a DataLibrary is NULL
 char *data_get_alert_text(DataLibrary *data_library, uint8_t index) {
-  return prv_alert_text[data_get_alert_count(data_library)][index];
+  return prv_alert_text[data_get_alert_count(data_library) - 1][index];
 }
 
 // Get the alert level threshold in seconds, this is the time remaining when the alert goes off
@@ -693,7 +695,7 @@ void data_schedule_alert(DataLibrary *data_library, int32_t seconds) {
   // write out the new data
   persist_write_data(PERSIST_ALERTS_KEY, alert_data, sizeof(AlertData));
   // send message to the other part of the app to refresh data (background->foreground) and vv.
-  AppWorkerMessage msg_data = { .data0 = 1 };
+  AppWorkerMessage msg_data = { .data0 = WorkerMessageBackground };
   app_worker_send_message(0, &msg_data);
 }
 
@@ -709,7 +711,7 @@ void data_unschedule_alert(DataLibrary *data_library, uint8_t index) {
   // write out the new data
   persist_write_data(PERSIST_ALERTS_KEY, alert_data, sizeof(AlertData));
   // send message to the other part of the app to refresh data (background->foreground) and vv.
-  AppWorkerMessage msg_data = { .data0 = 1 };
+  AppWorkerMessage msg_data = { .data0 = WorkerMessageBackground };
   app_worker_send_message(0, &msg_data);
 }
 
@@ -919,7 +921,7 @@ void data_process_new_battery_state(DataLibrary *data_library,
   // set contiguous to true for next data point
   data_library->data_is_contiguous = true;
   // send message to the other part of the app to refresh data (background->foreground) and vv.
-  AppWorkerMessage msg_data = { .data0 = 0 };
+  AppWorkerMessage msg_data = { .data0 = WorkerMessageForeground };
   app_worker_send_message(0, &msg_data);
 }
 

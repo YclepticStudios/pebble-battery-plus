@@ -18,7 +18,8 @@
 void menu_show(DataLibrary *data_library);
 
 //! Initialize action menu
-void menu_initialize(void);
+//! @param data_library A pointer to the main DataLibrary from which to get information
+void menu_initialize(DataLibrary *data_library);
 
 //! Destroy action menu
 void menu_terminate(void);

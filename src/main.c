@@ -75,10 +75,12 @@ static void prv_tick_timer_service_handler(tm *tick_time, TimeUnits units_change
 
 // Worker message callback
 static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
-  // no need to read what is sent, just update the data
-  data_reload(main_data.data_library);
-  // refresh the screen
-  drawing_refresh();
+  if (data->data0 == WorkerMessageForeground) {
+    // no need to read what is sent, just update the data
+    data_reload(main_data.data_library);
+    // refresh the screen
+    drawing_refresh();
+  }
 }
 
 
@@ -101,7 +103,7 @@ void prv_initialize(void) {
   // initialize drawing layers
   drawing_initialize(window_root, main_data.data_library);
   // initialize action menu
-  menu_initialize();
+  menu_initialize(main_data.data_library);
   // subscribe to services
   app_worker_message_subscribe(prv_worker_message_handler);
   tick_timer_service_subscribe(MINUTE_UNIT, prv_tick_timer_service_handler);
