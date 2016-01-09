@@ -129,7 +129,7 @@ void menu_show(DataLibrary *data_library) {
   ActionMenuConfig config = (ActionMenuConfig) {
     .root_level = s_root_level,
     .colors = {
-      .background = PBL_IF_COLOR_ELSE(GColorGreen, GColorWhite),
+      .background = PBL_IF_COLOR_ELSE(GColorMagenta, GColorWhite),
       .foreground = GColorBlack,
     },
     .align = ActionMenuAlignTop,

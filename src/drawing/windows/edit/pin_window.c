@@ -13,7 +13,7 @@
 #include "../../../utility.h"
 
 // Constants
-#define DEFAULT_ACTIVE_CELL_COLOR GColorGreen
+#define DEFAULT_ACTIVE_CELL_COLOR GColorMagenta
 #define DEFAULT_INACTIVE_CELL_COLOR GColorDarkGray
 #define SELECTION_LAYER_SIZE GSize(126, 34)
 #define SELECTION_LAYER_CELL_PADDING 6
