@@ -19,6 +19,7 @@
 
 //! Constants
 #define DATA_MAX_ALERT_COUNT 4
+#define WAKE_UP_ALERT_INDEX_KEY 997
 
 //! AppMessage modes
 typedef enum { WorkerMessageForeground, WorkerMessageBackground } WorkerMessageType;
@@ -27,7 +28,7 @@ typedef enum { WorkerMessageForeground, WorkerMessageBackground } WorkerMessageT
 typedef struct DataLibrary DataLibrary;
 
 //! Alert triggered callback type
-typedef void(* BatteryAlertCallback)(void);
+typedef void(* BatteryAlertCallback)(uint8_t);
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

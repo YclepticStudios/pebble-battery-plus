@@ -16,6 +16,7 @@
 #define PERSIST_DATA_KEY 1000           //< The persistent storage key where the data write starts
 #define PERSIST_RECORD_LIFE_KEY 999     //< Persistent storage key where the record life is stored
 #define PERSIST_ALERTS_KEY 998          //< Persistent storage key for number of alerts scheduled
+// #define WAKE_UP_ALERT_INDEX_KEY 997  //< Defined in data_library.h
 #define DATA_LOGGING_TAG 5155346        //< Tag used to identify data once on phone
 // Constants
 #define DATA_VERSION 0                  //< The current persistent storage format version
@@ -133,7 +134,7 @@ static void prv_app_timer_alert_callback(void *data) {
   DataLibrary *data_library = timer_data->data_library;
   // raise callback
   if (data_library->alert_callback) {
-    data_library->alert_callback();
+    data_library->alert_callback(timer_data->index);
   }
   // clean up timer
   uint8_t index = timer_data->index;
@@ -986,6 +987,7 @@ DataLibrary *data_initialize(void) {
   persist_read_data(PERSIST_ALERTS_KEY, &data_library->alert_data,
     persist_get_size(PERSIST_ALERTS_KEY));
   data_library->alert_callback = NULL;
+  memset(data_library->app_timers, 0, sizeof(data_library->app_timers));
 #ifdef PEBBLE_BACKGROUND_WORKER
   data_library->data_logging_session = data_logging_create(DATA_LOGGING_TAG,
     DATA_LOGGING_BYTE_ARRAY, sizeof(DataNode), true);

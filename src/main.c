@@ -88,8 +88,22 @@ static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
 // Loading and Unloading
 //
 
+// Initialize the popup window
+static void prv_initialize_popup(void) {
+  // read alert index
+  uint8_t alert_index = persist_read_int(WAKE_UP_ALERT_INDEX_KEY);
+  persist_delete(WAKE_UP_ALERT_INDEX_KEY);
+  // create a dummy window
+  window_stack_push(window_create(), true);
+}
+
+// Terminate the popup window
+static void prv_terminate_popup(void) {
+
+}
+
 // Initialize the program
-void prv_initialize(void) {
+static void prv_initialize_main(void) {
   // load data
   main_data.data_library = data_initialize();
   // start background worker
@@ -110,7 +124,7 @@ void prv_initialize(void) {
 }
 
 // Terminate the program
-static void prv_terminate(void) {
+static void prv_terminate_main(void) {
   // unsubscribe from services
   app_worker_message_unsubscribe();
   tick_timer_service_unsubscribe();
@@ -124,7 +138,18 @@ static void prv_terminate(void) {
 
 // Entry point
 int main(void) {
-  prv_initialize();
+  // check launch reason
+  if (launch_reason() == APP_LAUNCH_WORKER) {
+    prv_initialize_popup();
+  } else {
+    prv_initialize_main();
+  }
+  // main loop
   app_event_loop();
-  prv_terminate();
+  // terminate proper part
+  if (launch_reason() == APP_LAUNCH_WORKER) {
+    prv_terminate_popup();
+  } else {
+    prv_terminate_main();
+  }
 }

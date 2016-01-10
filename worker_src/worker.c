@@ -18,7 +18,10 @@
 static DataLibrary *data_library;
 
 // Battery alert raised callback
-static void prv_battery_alert_handler(void) {
+static void prv_battery_alert_handler(uint8_t alert_index) {
+  // write out the index of the alert
+  persist_write_int(WAKE_UP_ALERT_INDEX_KEY, alert_index);
+  // launch main app
   worker_launch_app();
 }
 
