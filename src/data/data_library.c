@@ -47,6 +47,13 @@ static char *prv_alert_text[][4] = {
   { "Low Alert", "Med Alert", "2nd Alert", "1st Alert" }
 };
 
+// AppTimer custom data struct
+typedef struct {
+  AppTimer      *app_timer;       //< The AppTimer which will own this struct as data
+  DataLibrary   *data_library;    //< Main data library
+  uint8_t       index;            //< Index of timer/alert
+} AppTimerData;
+
 // Battery alert data structure
 typedef struct AlertData {
   uint8_t   scheduled_count;                    //< The total number of currently scheduled alerts
@@ -106,7 +113,7 @@ typedef struct DataLibrary {
   uint16_t                cycle_node_count;         //< Number of nodes in charge cycle linked list
   ChargeCycleNode         *cycle_head_node;         //< Charge cycle linked list head node
   AlertData               alert_data;               //< Data for battery low alerts
-  AppTimer                *app_timers[DATA_MAX_ALERT_COUNT];  //< WakeupId for each alert
+  AppTimerData            *app_timers[DATA_MAX_ALERT_COUNT];  //< AppTimer data for alerts
   BatteryAlertCallback    alert_callback;           //< The function to call when an alert goes off
   DataLoggingSessionRef   data_logging_session;     //< Data logging session to send data to phone
 } DataLibrary;
@@ -122,10 +129,16 @@ static void prv_persist_read_data_block(DataLibrary *data_library, uint16_t inde
 
 // AppTimer callback for alerts
 static void prv_app_timer_alert_callback(void *data) {
-  DataLibrary *data_library = data;
+  AppTimerData *timer_data = data;
+  DataLibrary *data_library = timer_data->data_library;
+  // raise callback
   if (data_library->alert_callback) {
     data_library->alert_callback();
   }
+  // clean up timer
+  uint8_t index = timer_data->index;
+  free(timer_data);
+  data_library->app_timers[index] = NULL;
 }
 
 // Set DataNode properties from SaveState
@@ -661,14 +674,29 @@ void data_refresh_all_alerts(DataLibrary *data_library) {
   AlertData *alert_data = &data_library->alert_data;
   // load from persistent storage
   persist_read_data(PERSIST_ALERTS_KEY, alert_data, persist_get_size(PERSIST_ALERTS_KEY));
-  // cancel all existing alerts and reschedule
+  // cancel all existing alerts and reschedule new ones
   time_t delay_time, time_remaining = data_get_life_remaining(data_library);
   for (uint8_t index = 0; index < alert_data->scheduled_count; index++) {
-    app_timer_cancel(data_library->app_timers[index]);
-    // TODO: If new time is in past and old time is in future, display the alert
-    delay_time = time_remaining - alert_data->thresholds[index];
-    data_library->app_timers[index] = app_timer_register(delay_time * 1000,
-      prv_app_timer_alert_callback, NULL);
+    // get time remaining
+    delay_time = (time_remaining - alert_data->thresholds[index]) * 1000;
+    // cancel, reschedule, and schedule timers
+    if (data_library->app_timers[index]) {
+      if (delay_time > 0) {
+        // reschedule the timer
+        app_timer_reschedule(data_library->app_timers[index]->app_timer, delay_time);
+      } else {
+        // the new charge rate puts this timer in the past, so raise it's event now
+        app_timer_cancel(data_library->app_timers[index]->app_timer);
+        prv_app_timer_alert_callback(data_library->app_timers[index]);
+      }
+    } else if (delay_time > 0) {
+      // schedule a new timer
+      data_library->app_timers[index] = MALLOC(sizeof(AppTimerData));
+      data_library->app_timers[index]->data_library = data_library;
+      data_library->app_timers[index]->index = index;
+      data_library->app_timers[index]->app_timer = app_timer_register(delay_time,
+        prv_app_timer_alert_callback, data_library->app_timers[index]);
+    }
   }
 }
 
@@ -708,6 +736,12 @@ void data_unschedule_alert(DataLibrary *data_library, uint8_t index) {
   memmove(&alert_data->thresholds[index], &alert_data->thresholds[index + 1],
     (DATA_MAX_ALERT_COUNT - index - 1) * sizeof(alert_data->thresholds[0]));
   alert_data->scheduled_count--;
+  // cancel timer
+  if (data_library->app_timers[index]) {
+    app_timer_cancel(data_library->app_timers[index]->app_timer);
+    free(data_library->app_timers[index]);
+    data_library->app_timers[index] = NULL;
+  }
   // write out the new data
   persist_write_data(PERSIST_ALERTS_KEY, alert_data, sizeof(AlertData));
   // send message to the other part of the app to refresh data (background->foreground) and vv.
@@ -969,6 +1003,14 @@ DataLibrary *data_initialize(void) {
 
 // Terminate the data
 void data_terminate(DataLibrary *data_library) {
+  // free timers
+  for (uint8_t index = 0; index < data_library->alert_data.scheduled_count; index++) {
+    if (data_library->app_timers[index]) {
+      app_timer_cancel(data_library->app_timers[index]->app_timer);
+      free(data_library->app_timers[index]);
+    }
+  }
+  // free other data
   prv_linked_list_destroy((Node**)&data_library->cycle_head_node, &data_library->cycle_node_count);
   prv_linked_list_destroy((Node**)&data_library->head_node, &data_library->node_count);
   free(data_library);

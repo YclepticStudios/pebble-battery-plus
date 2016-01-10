@@ -46,6 +46,7 @@ static void prv_initialize(void) {
 
 // Terminate
 static void prv_terminate(void) {
+  app_worker_message_unsubscribe();
   battery_state_service_unsubscribe();
   data_terminate(data_library);
 }
