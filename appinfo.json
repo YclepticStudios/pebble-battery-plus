@@ -18,6 +18,11 @@
         "type": "raw",
         "name": "CONFIRM_SEQUENCE",
         "file": "confirm_sequence.pdc"
+      },
+      {
+        "type": "raw",
+        "name": "DELETED_SEQUENCE",
+        "file": "deleted_sequence.pdc"
       }
     ]
   }

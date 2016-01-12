@@ -16,6 +16,7 @@
 
 // Action types
 typedef enum {
+  ActionTypePrintRam,
   ActionTypeDataExport,
   ActionTypeAddAlert
 } ActionType;
@@ -55,8 +56,6 @@ static void prv_pin_window_return_handler(bool canceled, uint8_t value_count, in
     menu_initialize(window_context->data_library);
     // show popup notification
     Window *popup_window = popup_window_create(true);
-    popup_window_set_close_on_animation_end(popup_window, true);
-    popup_window_set_background_color(popup_window, GColorMagenta);
     popup_window_set_visual(popup_window, RESOURCE_ID_CONFIRM_SEQUENCE);
     popup_window_set_text(popup_window, "", "Alert Set");
     window_stack_push(popup_window, true);
@@ -97,6 +96,11 @@ static void prv_alert_delete_handler(ActionMenu *action_menu, const ActionMenuIt
   // reload action menu
   menu_terminate();
   menu_initialize(context);
+  // show popup notification
+  Window *popup_window = popup_window_create(true);
+  popup_window_set_visual(popup_window, RESOURCE_ID_DELETED_SEQUENCE);
+  popup_window_set_text(popup_window, "", "Alert Deleted");
+  window_stack_push(popup_window, true);
 }
 
 
@@ -107,6 +111,9 @@ static void prv_action_performed_handler(ActionMenu *action_menu, const ActionMe
   ActionType action_type = (ActionType)action_menu_item_get_action_data(item);
   // perform action
   switch (action_type) {
+    case ActionTypePrintRam:
+      printf("Free RAM: %d", (int)heap_bytes_free());
+      break;
     case ActionTypeDataExport:
       // TODO: Add busy screen when printing
       data_print_csv(context);
@@ -154,8 +161,10 @@ void menu_initialize(DataLibrary *data_library) {
   // create root level
   s_root_level = action_menu_level_create(2);
   // create data level
-  s_data_level = action_menu_level_create(1);
+  s_data_level = action_menu_level_create(2);
   action_menu_level_add_child(s_root_level, s_data_level, "Data");
+  action_menu_level_add_action(s_data_level, "Print RAM", prv_action_performed_handler,
+    (void*)ActionTypePrintRam);
   action_menu_level_add_action(s_data_level, "Export", prv_action_performed_handler,
     (void*)ActionTypeDataExport);
   // create alert level

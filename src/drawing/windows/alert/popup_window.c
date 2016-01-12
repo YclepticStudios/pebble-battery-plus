@@ -13,6 +13,7 @@
 
 // Constants
 #define SEQUENCE_NEXT_FRAME_DELAY 33
+#define BACKGROUND_DEFAULT_COLOR GColorMagenta
 
 // File type options
 typedef enum {
@@ -164,6 +165,7 @@ Window *popup_window_create(bool destroy_on_close) {
   // create window
   Window *window = window_create();
   ASSERT(window);
+  window_set_background_color(window, BACKGROUND_DEFAULT_COLOR);
   WindowHandlers window_handlers = (WindowHandlers) {
     .appear = prv_window_appear_handler,
     .disappear = prv_window_disappear_handler,
@@ -173,6 +175,7 @@ Window *popup_window_create(bool destroy_on_close) {
   PopupWindowData *window_data = MALLOC(sizeof(PopupWindowData));
   (*window_data) = (PopupWindowData) {
     .file_type = FileTypeUnknown,
+    .close_on_animation_end = true,
     .destroy_on_close = destroy_on_close
   };
   window_set_user_data(window, window_data);
