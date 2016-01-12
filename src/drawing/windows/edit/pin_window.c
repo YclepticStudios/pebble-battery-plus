@@ -54,12 +54,10 @@ static void prv_selection_handle_complete(void *context) {
   PinWindowData *window_data = window_get_user_data(window);
   bool is_handler = (bool)window_data->return_callback;
   if (is_handler) {
+    window_data->already_returned = true;
     window_data->return_callback(false, window_data->field_count, window_data->field_values,
       window_data->context);
-    window_data->already_returned = true;
   }
-  // remove window causing automatic cleanup
-  window_stack_remove(window, true);
 }
 
 // Selection layer increment
@@ -80,18 +78,10 @@ static void prv_selection_handle_dec(int index, uint8_t clicks, void *context) {
   }
 }
 
-// Window disappear handler
-static void prv_window_disappear_handler(Window *window) {
-  // check if still in stack
-  if (!window_stack_contains_window(window)) {
-    // raise callback if not returned already
-    PinWindowData *window_data = window_get_user_data(window);
-    if (!window_data->already_returned) {
-      window_data->return_callback(true, window_data->field_count, window_data->field_values,
-        window_data->context);
-    }
-    pin_window_destroy(window);
-  }
+// Window unload handler
+static void prv_window_unload_handler(Window *window) {
+  // destroy pin window
+  pin_window_destroy(window);
 }
 
 
@@ -147,7 +137,7 @@ Window *pin_window_create(uint8_t field_count, bool destroy_on_close) {
   Window *window = window_create();
   ASSERT(window);
   WindowHandlers window_handlers = (WindowHandlers) {
-    .disappear = prv_window_disappear_handler
+    .unload = prv_window_unload_handler
   };
   window_set_window_handlers(window, window_handlers);
   PinWindowData *window_data = MALLOC(sizeof(PinWindowData));
@@ -200,8 +190,13 @@ Window *pin_window_create(uint8_t field_count, bool destroy_on_close) {
 
 // Destroy a PinWindow
 void pin_window_destroy(Window *window) {
-  window_stack_remove(window, true);
   PinWindowData *window_data = window_get_user_data(window);
+  // raise callback if not returned already
+  if (!window_data->already_returned) {
+    window_data->return_callback(true, window_data->field_count, window_data->field_values,
+      window_data->context);
+  }
+  // destroy stuff
   selection_layer_destroy(window_data->selection_layer);
   text_layer_destroy(window_data->footer_layer);
   text_layer_destroy(window_data->title_layer);

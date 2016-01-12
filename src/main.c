@@ -11,6 +11,7 @@
 #include "data/data_library.h"
 #include "drawing/drawing.h"
 #include "menu.h"
+#include "drawing/windows/alert/popup_window.h"
 #include "utility.h"
 
 // Main constants
@@ -93,13 +94,12 @@ static void prv_initialize_popup(void) {
   // read alert index
   uint8_t alert_index = persist_read_int(WAKE_UP_ALERT_INDEX_KEY);
   persist_delete(WAKE_UP_ALERT_INDEX_KEY);
-  // create a dummy window
-  window_stack_push(window_create(), true);
-}
-
-// Terminate the popup window
-static void prv_terminate_popup(void) {
-
+  // create popup alert window
+  Window *popup_window = popup_window_create(true);
+  popup_window_set_close_on_animation_end(popup_window, true);
+  popup_window_set_background_color(popup_window, GColorChromeYellow);
+  popup_window_set_visual(popup_window, RESOURCE_ID_CONFIRM_SEQUENCE);
+  window_stack_push(popup_window, true);
 }
 
 // Initialize the program
@@ -140,6 +140,7 @@ static void prv_terminate_main(void) {
 int main(void) {
   // check launch reason
   if (launch_reason() == APP_LAUNCH_WORKER) {
+  //if (true) { // TODO: Fix this
     prv_initialize_popup();
   } else {
     prv_initialize_main();
@@ -147,9 +148,8 @@ int main(void) {
   // main loop
   app_event_loop();
   // terminate proper part
-  if (launch_reason() == APP_LAUNCH_WORKER) {
-    prv_terminate_popup();
-  } else {
+  if (launch_reason() != APP_LAUNCH_WORKER) {
+  //if (false) { // TODO: Fix this
     prv_terminate_main();
   }
 }

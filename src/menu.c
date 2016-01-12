@@ -11,6 +11,7 @@
 
 #include "menu.h"
 #include "drawing/windows/edit/pin_window.h"
+#include "drawing/windows/alert/popup_window.h"
 #include "utility.h"
 
 // Action types
@@ -47,9 +48,18 @@ static void prv_pin_window_return_handler(bool canceled, uint8_t value_count, in
     // create new alert
     int32_t new_threshold = values[0] * SEC_IN_DAY + values[1] * SEC_IN_HR;
     data_schedule_alert(window_context->data_library, new_threshold);
+    // close pin window
+    window_stack_pop(true);
     // reload action menu
     menu_terminate();
     menu_initialize(window_context->data_library);
+    // show popup notification
+    Window *popup_window = popup_window_create(true);
+    popup_window_set_close_on_animation_end(popup_window, true);
+    popup_window_set_background_color(popup_window, GColorMagenta);
+    popup_window_set_visual(popup_window, RESOURCE_ID_CONFIRM_SEQUENCE);
+    popup_window_set_text(popup_window, "", "Alert Set");
+    window_stack_push(popup_window, true);
   }
   // free data
   free(window_context);
