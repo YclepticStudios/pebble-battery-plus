@@ -10,7 +10,7 @@
 // @bugs No known bugs
 
 #include "animation.h"
-#include "utility.h"
+#include "../utility.h"
 
 // Animation constants
 #define ANIMATION_TICK_INTERVAL 10      //< Number of milliseconds to pause between animation ticks

@@ -153,14 +153,12 @@ Window *pin_window_create(uint8_t field_count, bool destroy_on_close) {
   // create title TextLayer
   const GEdgeInsets title_text_insets = { .top = PBL_IF_RECT_ELSE(22, 27) };
   window_data->title_layer = text_layer_create(grect_inset(window_bounds, title_text_insets));
-  text_layer_set_text(window_data->title_layer, "PIN Required");
   text_layer_set_font(window_data->title_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(window_data->title_layer, GTextAlignmentCenter);
   layer_add_child(window_layer, text_layer_get_layer(window_data->title_layer));
   // create footer TextLayer
   const GEdgeInsets sub_text_insets = {.top = 112, .right = 5, .bottom = 10, .left = 5};
   window_data->footer_layer = text_layer_create(grect_inset(window_bounds, sub_text_insets));
-  text_layer_set_text(window_data->footer_layer, "Enter your PIN to continue");
   text_layer_set_text_alignment(window_data->footer_layer, GTextAlignmentCenter);
   text_layer_set_font(window_data->footer_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   layer_add_child(window_layer, text_layer_get_layer(window_data->footer_layer));

@@ -24,7 +24,7 @@
 #define MED_THRESH_DEFAULT SEC_IN_DAY   //< Default threshold for medium level
 #define DATA_BLOCK_SAVE_STATE_COUNT 50  //< Number of SaveStates that fit in one persistent write
 #define DATA_EPOCH_OFFSET 1420070400    //< Jan 1, 2015 at 0:00:00, reduces size when saving data
-#define LINKED_LIST_MAX_SIZE DATA_BLOCK_SAVE_STATE_COUNT * 3 //< Max size of linked list
+#define LINKED_LIST_MAX_SIZE DATA_BLOCK_SAVE_STATE_COUNT //< Max size of linked list
 #define CYCLE_LINKED_LIST_MIN_SIZE 9    //< The maximum number of nodes in the charge cycle list
 // Thresholds
 #define CHARGING_MIN_LENGTH 60          //< Minimum duration while charging to register (sec)

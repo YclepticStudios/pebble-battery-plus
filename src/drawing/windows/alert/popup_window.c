@@ -186,7 +186,6 @@ Window *popup_window_create(bool destroy_on_close) {
   const GEdgeInsets title_text_insets = { .top = PBL_IF_RECT_ELSE(22, 27) };
   window_data->title_layer = text_layer_create(grect_inset(window_bounds, title_text_insets));
   text_layer_set_background_color(window_data->title_layer, GColorClear);
-  text_layer_set_text(window_data->title_layer, "Alert Title");
   text_layer_set_font(window_data->title_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(window_data->title_layer, GTextAlignmentCenter);
   layer_add_child(window_layer, text_layer_get_layer(window_data->title_layer));
@@ -194,7 +193,6 @@ Window *popup_window_create(bool destroy_on_close) {
   const GEdgeInsets footer_text_insets = {.top = 125, .right = 5, .bottom = 10, .left = 5};
   window_data->footer_layer = text_layer_create(grect_inset(window_bounds, footer_text_insets));
   text_layer_set_background_color(window_data->footer_layer, GColorClear);
-  text_layer_set_text(window_data->footer_layer, "This is the footer of a dummy alert!");
   text_layer_set_text_alignment(window_data->footer_layer, GTextAlignmentCenter);
   text_layer_set_font(window_data->footer_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   layer_add_child(window_layer, text_layer_get_layer(window_data->footer_layer));
