@@ -253,7 +253,7 @@ static Node* prv_linked_list_get_node_by_index(Node *head_node, uint16_t index) 
 static DataNode* prv_list_get_data_node(DataLibrary *data_library, uint16_t index) {
   // check if outside the currently cached linked list and create new cache
   if (index < data_library->head_node_index ||
-      index >= data_library->head_node_index + LINKED_LIST_MAX_SIZE) {
+      index >= data_library->head_node_index + data_library->node_count) {
     // read in new data
     prv_persist_read_data_block(data_library, index);
   }
@@ -438,12 +438,21 @@ static void prv_persist_read_data_block(DataLibrary *data_library, uint16_t inde
   data_library->head_node = NULL;
   data_library->head_node_index = index / DATA_BLOCK_SAVE_STATE_COUNT * DATA_BLOCK_SAVE_STATE_COUNT;
   // get persistent storage key
-  uint32_t persist_key = persist_read_int(PERSIST_DATA_KEY) - index / DATA_BLOCK_SAVE_STATE_COUNT;
+  uint32_t persist_key = persist_read_int(PERSIST_DATA_KEY);
   if (!persist_exists(persist_key)) { persist_key--; }
-  // read in several blocks of data
+  if (persist_key <= PERSIST_DATA_KEY || !persist_exists(persist_key)) { return; }
+  // offset the persistent key to where the data is stored
   SaveStateBlock save_state_block;
+  persist_read_data(persist_key, &save_state_block, sizeof(SaveStateBlock));
+  if (index % DATA_BLOCK_SAVE_STATE_COUNT >= save_state_block.save_state_count) {
+    persist_key--;
+    data_library->head_node_index += save_state_block.save_state_count;
+  }
+  persist_key -= index / DATA_BLOCK_SAVE_STATE_COUNT;
+  // read in several blocks of data
   for (uint32_t key = persist_key;
-       key > persist_key - 3 && key > PERSIST_DATA_KEY && persist_exists(key); key--) {
+       key > persist_key - (LINKED_LIST_MAX_SIZE / DATA_BLOCK_SAVE_STATE_COUNT) &&
+         key > PERSIST_DATA_KEY && persist_exists(key); key--) {
     // read the data from persistent storage
     persist_read_data(key, &save_state_block, sizeof(SaveStateBlock));
     // loop over data
