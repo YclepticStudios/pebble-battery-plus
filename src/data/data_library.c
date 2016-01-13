@@ -25,10 +25,10 @@
 #define DATA_BLOCK_SAVE_STATE_COUNT 50  //< Number of SaveStates that fit in one persistent write
 #define DATA_EPOCH_OFFSET 1420070400    //< Jan 1, 2015 at 0:00:00, reduces size when saving data
 #define LINKED_LIST_MAX_SIZE DATA_BLOCK_SAVE_STATE_COUNT //< Max size of linked list
-#define CYCLE_LINKED_LIST_MIN_SIZE 9    //< The maximum number of nodes in the charge cycle list
+#define CYCLE_LINKED_LIST_MIN_SIZE 9    //< The minimum number of nodes in the charge cycle list
 // Thresholds
 #define CHARGING_MIN_LENGTH 60          //< Minimum duration while charging to register (sec)
-#define DISCHARGING_MIN_FRACTION 1 / 30 //< Minimum fraction of default run time to register
+#define DISCHARGING_MIN_FRACTION 1 / 10 //< Minimum fraction of default run time to register
 
 
 // Alert colors and text for different counts and indices, accessed as [count][index]
@@ -329,24 +329,12 @@ static void prv_filter_charge_cycles(DataLibrary *data_library, bool filter_last
   // loop over nodes and find matching index
   bool pending_delete = false;
   ChargeCycleNode **tmp_node = &data_library->cycle_head_node;
-  ChargeCycleNode *lst_node = NULL, *cur_node = data_library->cycle_head_node;
+  ChargeCycleNode *cur_node = data_library->cycle_head_node;
   while (cur_node && (filter_last_node || cur_node->next)) {
     // check if too short a duration
     if (cur_node->end_epoch &&
         cur_node->end_epoch - cur_node->discharge_epoch <
-        prv_get_default_charge_rate() * (-100) * DISCHARGING_MIN_FRACTION) {
-      // extend previous node if contiguous
-      if (lst_node && cur_node->end_epoch == lst_node->charge_epoch) {
-        lst_node->charge_epoch = cur_node->charge_epoch;
-      }
-      pending_delete = true;
-    } else if (lst_node && lst_node->discharge_epoch &&
-      lst_node->discharge_epoch - lst_node->charge_epoch < CHARGING_MIN_LENGTH) {
-      // extend previous node if contiguous
-      if (cur_node->end_epoch == lst_node->charge_epoch) {
-        lst_node->charge_epoch = cur_node->charge_epoch;
-        lst_node->discharge_epoch = cur_node->discharge_epoch;
-      }
+        cur_node->avg_charge_rate * (-100) * DISCHARGING_MIN_FRACTION) {
       pending_delete = true;
     }
     // index and/or delete nodes
@@ -358,7 +346,6 @@ static void prv_filter_charge_cycles(DataLibrary *data_library, bool filter_last
       pending_delete = false;
     } else {
       tmp_node = &cur_node->next;
-      lst_node = cur_node;
       cur_node = cur_node->next;
     }
   }
