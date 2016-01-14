@@ -19,8 +19,13 @@
 typedef void (*CardRenderHandler)(Layer*, GContext*, uint16_t, DataLibrary*);
 
 
-//! Refresh everything on card
-void card_refresh(Layer *layer);
+//! Free the rendered cache of the card if it is not visible
+//! @param layer Pointer to base layer for card
+void card_free_cache_if_hidden(Layer *layer);
+
+//! Render the card and cache it the next chance possible
+//! @param layer Pointer to base layer for card
+void card_render(Layer *layer);
 
 //! Send click event to current card and re-render
 void card_select_click(Layer *layer);

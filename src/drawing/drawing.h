@@ -17,7 +17,7 @@
 #define DRAWING_CARD_COUNT 3
 
 
-//! Refresh all visible elements
+//! Refresh current card
 void drawing_refresh(void);
 
 //! Set the visible state of the action menu dot
@@ -26,6 +26,10 @@ void drawing_set_action_menu_dot(bool visible);
 
 //! Select click handler for current card
 void drawing_select_click(void);
+
+//! Render the next or previous card
+//! @param up True if the selection should move up, else false
+void drawing_render_next_card(bool up);
 
 //! Select next or previous card
 //! @param up True if the selection should move up, else false

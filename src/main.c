@@ -29,8 +29,13 @@ static struct {
 // Callbacks
 //
 
-// Up click handler
-void up_single_click_handler(ClickRecognizerRef recognizer, void *context) {
+// Down click event for "UP" button
+void up_button_click_down_handler(ClickRecognizerRef recognizer, void *context) {
+  drawing_render_next_card(true);
+}
+
+// Up click event for "UP" button
+void up_button_click_up_handler(ClickRecognizerRef recognizer, void *context) {
   drawing_select_next_card(true);
 }
 
@@ -51,19 +56,26 @@ void select_long_click_handler(ClickRecognizerRef recognizer, void *context) {
   drawing_set_action_menu_dot(false);
 }
 
-// Down click handler
-void down_single_click_handler(ClickRecognizerRef recognizer, void *context) {
+// Down click event for "DOWN" button
+void down_button_click_down_handler(ClickRecognizerRef recognizer, void *context) {
+  drawing_render_next_card(false);
+}
+
+// Up click event for "DOWN" button
+void down_button_click_up_handler(ClickRecognizerRef recognizer, void *context) {
   drawing_select_next_card(false);
 }
 
 // Click configuration callback
 static void prv_click_config_handler(void *context) {
-  window_single_click_subscribe(BUTTON_ID_UP, up_single_click_handler);
+  window_raw_click_subscribe(BUTTON_ID_UP, up_button_click_down_handler,
+    up_button_click_up_handler, NULL);
   window_raw_click_subscribe(BUTTON_ID_SELECT, select_click_down_handler,
     select_click_up_handler, NULL);
   window_long_click_subscribe(BUTTON_ID_SELECT, CLICK_LONG_PRESS_DURATION,
     select_long_click_handler, NULL);
-  window_single_click_subscribe(BUTTON_ID_DOWN, down_single_click_handler);
+  window_raw_click_subscribe(BUTTON_ID_DOWN, down_button_click_down_handler,
+    down_button_click_up_handler, NULL);
 }
 
 // Tick Timer service for updating every minute

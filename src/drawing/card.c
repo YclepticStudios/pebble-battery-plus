@@ -121,7 +121,7 @@ static void prv_layer_update_handler(Layer *layer, GContext *ctx) {
   // check more rigorously if the layers are aligned by comparing the screen to the last bitmap
   if (layer_is_screen_aligned) {
     // draw pattern onto drawing context
-    GPoint start_point = GPoint(70, 87);
+    GPoint start_point = GPoint(72, 87); //< "X" must be multiple of 8 so bytes line up on Aplite
     GColor pattern[] = {GColorOxfordBlue, GColorImperialPurple, GColorMintGreen, GColorOxfordBlue,
       GColorMelon, GColorBlack, GColorBulgarianRose, GColorWhite};
 #ifdef PBL_COLOR
@@ -129,7 +129,7 @@ static void prv_layer_update_handler(Layer *layer, GContext *ctx) {
       GColorMintGreenARGB8, GColorOxfordBlueARGB8, GColorMelonARGB8, GColorBlackARGB8,
       GColorBulgarianRoseARGB8, GColorWhiteARGB8};
 #else
-    uint8_t pattern_data[] = {0b00101001};
+    uint8_t pattern_data[] = {0b10010100};
 #endif
     for (uint8_t ii = 0; ii < ARRAY_LENGTH(pattern); ii++) {
       graphics_context_set_stroke_color(ctx, pattern[ii]);
@@ -139,8 +139,8 @@ static void prv_layer_update_handler(Layer *layer, GContext *ctx) {
     GBitmap *frame_buff = graphics_capture_frame_buffer(ctx);
     // check for pattern and determine alignment
     GBitmapDataRowInfo row_info = gbitmap_get_data_row_info(frame_buff, start_point.y);
-    layer_is_screen_aligned = !memcmp(row_info.data + start_point.x, pattern_data,
-      sizeof(pattern_data));
+    layer_is_screen_aligned = !memcmp(row_info.data + start_point.x / PBL_IF_BW_ELSE(8, 1),
+      pattern_data, sizeof(pattern_data));
     // release frame buffer
     graphics_release_frame_buffer(ctx, frame_buff);
   }
@@ -183,9 +183,21 @@ static void prv_layer_update_handler(Layer *layer, GContext *ctx) {
 // API Interface
 //
 
-// Refresh everything on card
-void card_refresh(Layer *layer) {
+// Free the rendered cache of the card if it is not visible
+void card_free_cache_if_hidden(Layer *layer) {
+  // check if visible
+  GRect bounds = layer_get_bounds(layer);
+  if (bounds.origin.y >= bounds.size.h || bounds.origin.y <= -bounds.size.h) {
+    CardLayer *card_layer = layer_get_data(layer);
+    gbitmap_destroy(card_layer->bmp_buff);
+    card_layer->bmp_buff = NULL;
+  }
+}
+
+// Render the card and cache it the next chance possible
+void card_render(Layer *layer) {
   CardLayer *card_layer = layer_get_data(layer);
+  layer_set_bounds(layer, (GRect){.origin = GPointZero, .size = layer_get_bounds(layer).size});
   card_layer->pending_refresh = true;
   layer_mark_dirty(layer);
 }
@@ -194,7 +206,7 @@ void card_refresh(Layer *layer) {
 void card_select_click(Layer *layer) {
   CardLayer *card_layer = layer_get_data(layer);
   card_layer->click_count++;
-  card_refresh(layer);
+  card_render(layer);
 }
 
 // Initialize card

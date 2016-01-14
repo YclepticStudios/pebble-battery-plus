@@ -71,6 +71,10 @@ static void prv_top_layer_update_proc_handler(Layer *layer, GContext *ctx) {
 static void prv_animation_handler(void) {
   // update card positions
   prv_position_cards();
+  // check if out of view
+  for (int8_t ii = 0; ii < DRAWING_CARD_COUNT; ii++) {
+    card_free_cache_if_hidden(drawing_data.card_layer[ii]);
+  }
   // redraw topmost layer
   layer_mark_dirty(drawing_data.top_layer);
 }
@@ -80,11 +84,12 @@ static void prv_animation_handler(void) {
 // API Interface
 //
 
-// Refresh all visible elements
+// Refresh current card
 void drawing_refresh(void) {
-  for (uint8_t ii = 0; ii < DRAWING_CARD_COUNT; ii++) {
-    card_refresh(drawing_data.card_layer[ii]);
-  }
+  uint8_t card_index = (DRAWING_CARD_COUNT -
+    ((drawing_data.scroll_offset / drawing_data.window_bounds.size.h) % DRAWING_CARD_COUNT - 1)) %
+    DRAWING_CARD_COUNT;
+  card_render(drawing_data.card_layer[card_index]);
 }
 
 // Set the visible state of the action menu dot
@@ -108,8 +113,24 @@ void drawing_select_click(void) {
   card_select_click(drawing_data.card_layer[card_index]);
 }
 
+
+// Render the next or previous card
+void drawing_render_next_card(bool up) {
+  // render the next card
+  uint8_t cur_card_index = (DRAWING_CARD_COUNT -
+    ((drawing_data.scroll_offset / drawing_data.window_bounds.size.h) % DRAWING_CARD_COUNT - 1)) %
+    DRAWING_CARD_COUNT;
+  uint8_t next_card_index = (cur_card_index + (up ? -1 : 1) + DRAWING_CARD_COUNT) %
+    DRAWING_CARD_COUNT;
+  card_render(drawing_data.card_layer[next_card_index]);
+  // move next card underneath current card to hide rendering
+  layer_insert_below_sibling(drawing_data.card_layer[next_card_index],
+    drawing_data.card_layer[cur_card_index]);
+}
+
 // Select next or previous card
 void drawing_select_next_card(bool up) {
+  // move target card position
   drawing_data.scroll_offset += (up ? 1 : -1) * drawing_data.window_bounds.size.h;
   // animate slide
   animation_int32_start(&drawing_data.scroll_offset_ani,
