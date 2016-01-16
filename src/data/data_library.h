@@ -125,9 +125,8 @@ uint8_t data_get_battery_percent(DataLibrary *data_library);
 //! @param index The index of the point to get
 //! @param epoch A pointer to an int32_t to which to set the epoch
 //! @param percent A pointer to a uint8_t to which to set the battery percent
-//! @return True if a point exists else false if outside data bounds
-bool data_get_data_point(DataLibrary *data_library, uint16_t index, int32_t *epoch,
-                                 uint8_t *percent);
+void data_get_data_point(DataLibrary *data_library, uint16_t index, int32_t *epoch,
+                         uint8_t *percent);
 
 //! Get the number of charge cycles which include the last x number of seconds (0 gets all points)
 //! @param data_library A pointer to an existing DataLibrary

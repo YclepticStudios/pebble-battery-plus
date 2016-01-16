@@ -620,7 +620,6 @@ static void prv_persist_convert_legacy_data(DataLibrary *data_library) {
 // Initialize to default values on first launch
 static void prv_first_launch_prep(DataLibrary *data_library) {
   // set alerts
-  memset(&data_library->alert_data, 0, sizeof(AlertData));
   data_schedule_alert(data_library, LOW_THRESH_DEFAULT);
   data_schedule_alert(data_library, MED_THRESH_DEFAULT);
   // write out starting persistent storage location
@@ -838,23 +837,20 @@ uint8_t data_get_battery_percent(DataLibrary *data_library) {
   } else if (percent <= cur_node.percent - 10) {
     percent = cur_node.percent - 9;
   }
-  if (percent < 0) {
-    percent = 0;
+  if (percent < 1) {
+    percent = 1;
   }
   return percent;
 }
 
 // Get a data point by its index with 0 being the most recent
-bool data_get_data_point(DataLibrary *data_library, uint16_t index, int32_t *epoch,
-                                 uint8_t *percent) {
+void data_get_data_point(DataLibrary *data_library, uint16_t index, int32_t *epoch,
+                         uint8_t *percent) {
   // get data node
   DataNode *data_node = prv_list_get_data_node(data_library, index);
   if (data_node) {
     (*epoch) = data_node->epoch;
     (*percent) = data_node->percent;
-    return true;
-  } else {
-    return false;
   }
 }
 
@@ -982,11 +978,6 @@ void data_process_new_battery_state(DataLibrary *data_library,
 
 // Destroy data and reload from persistent storage
 void data_reload(DataLibrary *data_library) {
-  // clean up data nodes
-  prv_linked_list_destroy((Node**)&data_library->cycle_head_node, &data_library->cycle_node_count);
-  prv_linked_list_destroy((Node**)&data_library->head_node, &data_library->node_count);
-  // prep structure
-  data_library->head_node_index = 0;
   // read data from persistent storage
   if (!persist_exists(PERSIST_DATA_KEY)) {
 #ifdef PEBBLE_BACKGROUND_WORKER
@@ -1003,7 +994,7 @@ void data_reload(DataLibrary *data_library) {
 DataLibrary *data_initialize(void) {
   // create new DataLibrary
   DataLibrary *data_library = MALLOC(sizeof(DataLibrary));
-  memset(data_library, 0, sizeof(data_library));
+  memset(data_library, 0, sizeof(DataLibrary));
 #ifdef PEBBLE_BACKGROUND_WORKER
   data_library->data_logging_session = data_logging_create(DATA_LOGGING_TAG,
     DATA_LOGGING_BYTE_ARRAY, sizeof(DataNode), true);
