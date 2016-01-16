@@ -50,9 +50,3 @@ void *malloc_check(uint16_t size, const char *file, int line);
 //! Get current epoch in milliseconds
 //! @return The current epoch time in milliseconds
 uint64_t epoch(void);
-
-//! Grab the current time and start the profiler count
-void profile_start(void);
-
-//! Detect how long the profiler has been running and print the result
-void profile_print(void);

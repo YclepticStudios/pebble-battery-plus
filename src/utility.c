@@ -20,7 +20,9 @@ void assert(void *ptr, const char *file, int line) {
   if (ptr) {
     return;
   }
+#ifdef BUILD_DEBUG
   APP_LOG(APP_LOG_LEVEL_ERROR, "Invalid pointer: (%s:%d)", file, line);
+#endif
   // assert
   void (*exit)(void) = NULL;
   exit();
@@ -36,16 +38,4 @@ void *malloc_check(uint16_t size, const char *file, int line) {
 // Get current epoch in milliseconds
 uint64_t epoch(void) {
   return (uint64_t)time(NULL) * 1000 + (uint64_t)time_ms(NULL, NULL);
-}
-
-// Grab the current time and start the profiler count
-uint64_t profile_time;
-void profile_start(void) {
-  profile_time = epoch();
-}
-
-// Detect how long the profiler has been running and print the result
-void profile_print(void) {
-  uint64_t duration = epoch() - profile_time;
-  APP_LOG(APP_LOG_LEVEL_INFO, "Profiler: %d ms", (int)duration);
 }

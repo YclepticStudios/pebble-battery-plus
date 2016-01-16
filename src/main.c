@@ -89,7 +89,7 @@ static void prv_tick_timer_service_handler(tm *tick_time, TimeUnits units_change
 // Worker message callback
 static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
   if (data->data0 == WorkerMessageForeground) {
-    // no need to read what is sent, just update the data
+    // update the data
     data_reload(main_data.data_library);
   }
   // refresh the screen
