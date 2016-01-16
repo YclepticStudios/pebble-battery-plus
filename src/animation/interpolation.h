@@ -32,6 +32,7 @@ typedef enum InterpolationCurve {
 int32_t interpolation_integer(int32_t from, int32_t to, uint32_t percent, uint32_t percent_max,
                               InterpolationCurve curve);
 
+// TODO: Delete unused ones once program is complete
 ////! Interpolation for GPoint type
 ////! @param from The beginning point
 ////! @param to The ending point
