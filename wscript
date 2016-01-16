@@ -12,14 +12,11 @@ out = 'build'
 
 def options(ctx):
     ctx.load('pebble_sdk')
-    ctx.load('defines', tooldir='waftools')
 
 def configure(ctx):
     ctx.load('pebble_sdk')
-# Use this line to chose whether or not to include debugging code
-#    ctx.options.build_debug = True
-    ctx.load('defines', tooldir='waftools')
-
+# Use this line to enable or disable debugging by defining the constant
+#    ctx.define('BUILD_DEBUG', 1)
 
 def build(ctx):
     ctx.load('pebble_sdk')

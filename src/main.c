@@ -14,6 +14,8 @@
 #include "drawing/windows/alert/popup_window.h"
 #include "utility.h"
 
+#pragma message "---- COMPILING IN RELEASE MODE ----"
+
 // Main constants
 #define REFRESH_PERIOD_MIN 5
 #define CLICK_LONG_PRESS_DURATION 500
