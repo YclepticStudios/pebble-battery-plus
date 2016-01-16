@@ -30,39 +30,39 @@ static struct {
 //
 
 // Down click event for "UP" button
-void up_button_click_down_handler(ClickRecognizerRef recognizer, void *context) {
+static void up_button_click_down_handler(ClickRecognizerRef recognizer, void *context) {
   drawing_render_next_card(true);
 }
 
 // Up click event for "UP" button
-void up_button_click_up_handler(ClickRecognizerRef recognizer, void *context) {
+static void up_button_click_up_handler(ClickRecognizerRef recognizer, void *context) {
   drawing_select_next_card(true);
 }
 
 // Select down click handler
-void select_click_down_handler(ClickRecognizerRef recognizer, void *context) {
+static void select_click_down_handler(ClickRecognizerRef recognizer, void *context) {
   drawing_select_click();
   drawing_set_action_menu_dot(true);
 }
 
 // Select up click handler
-void select_click_up_handler(ClickRecognizerRef recognizer, void *context) {
+static void select_click_up_handler(ClickRecognizerRef recognizer, void *context) {
   drawing_set_action_menu_dot(false);
 }
 
 // Select long click handler
-void select_long_click_handler(ClickRecognizerRef recognizer, void *context) {
+static void select_long_click_handler(ClickRecognizerRef recognizer, void *context) {
   menu_show(main_data.data_library);
   drawing_set_action_menu_dot(false);
 }
 
 // Down click event for "DOWN" button
-void down_button_click_down_handler(ClickRecognizerRef recognizer, void *context) {
+static void down_button_click_down_handler(ClickRecognizerRef recognizer, void *context) {
   drawing_render_next_card(false);
 }
 
 // Up click event for "DOWN" button
-void down_button_click_up_handler(ClickRecognizerRef recognizer, void *context) {
+static void down_button_click_up_handler(ClickRecognizerRef recognizer, void *context) {
   drawing_select_next_card(false);
 }
 

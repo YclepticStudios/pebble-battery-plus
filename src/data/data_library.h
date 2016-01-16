@@ -80,6 +80,7 @@ void data_unschedule_alert(DataLibrary *data_library, uint8_t index);
 //! Register callback for when an alert goes off
 //! @param data_library A pointer to an existing DataLibrary
 //! @param callback The callback to register
+// TODO: Add this to the foreground app to get alerts when awake
 void data_register_alert_callback(DataLibrary *data_library, BatteryAlertCallback callback);
 
 //! Get the time the watch needs to be charged by
@@ -144,11 +145,13 @@ uint16_t data_get_data_point_count_including_seconds(DataLibrary *data_library, 
 //! @param data_library A pointer to an existing DataLibrary
 void data_print_csv(DataLibrary *data_library);
 
+#ifdef PEBBLE_BACKGROUND_WORKER
 //! Process a BatteryChargeState structure and add it to the data
 //! @param data_library A pointer to an existing DataLibrary
 //! @param battery_state A BatteryChargeState containing the state of the battery
 void data_process_new_battery_state(DataLibrary *data_library, BatteryChargeState
                                     battery_state);
+#endif
 
 //! Destroy data and reload from persistent storage
 //! @param data_library A pointer to an existing DataLibrary

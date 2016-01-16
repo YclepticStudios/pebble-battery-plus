@@ -56,9 +56,9 @@ typedef struct {
 } AppTimerData;
 
 // Battery alert data structure
-typedef struct AlertData {
-  uint8_t   scheduled_count;                    //< The total number of currently scheduled alerts
+typedef struct {
   int32_t   thresholds[DATA_MAX_ALERT_COUNT];   //< Number of seconds before empty for alert
+  uint8_t   scheduled_count;                    //< The total number of currently scheduled alerts
 } AlertData;
 
 // Structure containing compressed data in the form it will be saved in
@@ -114,7 +114,7 @@ typedef struct DataLibrary {
   uint16_t                cycle_node_count;         //< Number of nodes in charge cycle linked list
   ChargeCycleNode         *cycle_head_node;         //< Charge cycle linked list head node
   AlertData               alert_data;               //< Data for battery low alerts
-  AppTimerData            *app_timers[DATA_MAX_ALERT_COUNT];  //< AppTimer data for alerts
+  AppTimerData            app_timers[DATA_MAX_ALERT_COUNT];  //< AppTimer data for alerts
   BatteryAlertCallback    alert_callback;           //< The function to call when an alert goes off
   DataLoggingSessionRef   data_logging_session;     //< Data logging session to send data to phone
 } DataLibrary;
@@ -139,7 +139,7 @@ static void prv_app_timer_alert_callback(void *data) {
   // clean up timer
   uint8_t index = timer_data->index;
   free(timer_data);
-  data_library->app_timers[index] = NULL;
+  data_library->app_timers[index].app_timer = NULL;
 }
 
 // Set DataNode properties from SaveState
@@ -475,6 +475,7 @@ static void prv_persist_read_data_block(DataLibrary *data_library, uint16_t inde
   }
 }
 
+#ifdef PEBBLE_BACKGROUND_WORKER
 // Write newest DataNode into persistent storage
 static void prv_persist_write_data_node(DataLibrary *data_library, DataNode *data_node) {
   // get the location and size of the data
@@ -508,7 +509,9 @@ static void prv_persist_write_data_node(DataLibrary *data_library, DataNode *dat
     persist_write_int(PERSIST_DATA_KEY, ++persist_key);
   }
 }
+#endif
 
+#ifdef PEBBLE_BACKGROUND_WORKER
 // Process a SaveState structure by calculating stats and persisting
 static void prv_process_save_state(DataLibrary *data_library, SaveState save_state) {
   // calculate record run time
@@ -557,12 +560,14 @@ static void prv_process_save_state(DataLibrary *data_library, SaveState save_sta
   data_logging_log(data_library->data_logging_session, new_node, 1);
 #endif
 }
+#endif
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // First Time Launch
 //
 
+#ifdef PEBBLE_BACKGROUND_WORKER
 // data constants
 #define LEGACY_PERSIST_DATA 100
 #define LEGACY_PERSIST_DATA_LENGTH 24 // must be multiple of 4
@@ -629,7 +634,7 @@ static void prv_first_launch_prep(DataLibrary *data_library) {
   // write out the current battery state
   data_process_new_battery_state(data_library, battery_state_service_peek());
 }
-
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // API Interface
@@ -677,22 +682,21 @@ void data_refresh_all_alerts(DataLibrary *data_library) {
     // get time remaining
     delay_time = (time_remaining - alert_data->thresholds[index]) * 1000;
     // cancel, reschedule, and schedule timers
-    if (data_library->app_timers[index]) {
+    if (data_library->app_timers[index].app_timer) {
       if (delay_time > 0) {
         // reschedule the timer
-        app_timer_reschedule(data_library->app_timers[index]->app_timer, delay_time);
+        app_timer_reschedule(data_library->app_timers[index].app_timer, delay_time);
       } else {
         // the new charge rate puts this timer in the past, so raise it's event now
-        app_timer_cancel(data_library->app_timers[index]->app_timer);
-        prv_app_timer_alert_callback(data_library->app_timers[index]);
+        app_timer_cancel(data_library->app_timers[index].app_timer);
+        prv_app_timer_alert_callback(&data_library->app_timers[index]);
       }
     } else if (delay_time > 0) {
       // schedule a new timer
-      data_library->app_timers[index] = MALLOC(sizeof(AppTimerData));
-      data_library->app_timers[index]->data_library = data_library;
-      data_library->app_timers[index]->index = index;
-      data_library->app_timers[index]->app_timer = app_timer_register(delay_time,
-        prv_app_timer_alert_callback, data_library->app_timers[index]);
+      data_library->app_timers[index].data_library = data_library;
+      data_library->app_timers[index].index = index;
+      data_library->app_timers[index].app_timer = app_timer_register(delay_time,
+        prv_app_timer_alert_callback, &data_library->app_timers[index]);
     }
   }
 }
@@ -720,7 +724,11 @@ void data_schedule_alert(DataLibrary *data_library, int32_t seconds) {
   // write out the new data
   persist_write_data(PERSIST_ALERTS_KEY, alert_data, sizeof(AlertData));
   // send message to the other part of the app to refresh data (background->foreground) and vv.
+#ifdef PEBBLE_BACKGROUND_WORKER
+  AppWorkerMessage msg_data = { .data0 = WorkerMessageForeground };
+#else
   AppWorkerMessage msg_data = { .data0 = WorkerMessageBackground };
+#endif
   app_worker_send_message(0, &msg_data);
 }
 
@@ -734,10 +742,9 @@ void data_unschedule_alert(DataLibrary *data_library, uint8_t index) {
     (DATA_MAX_ALERT_COUNT - index - 1) * sizeof(alert_data->thresholds[0]));
   alert_data->scheduled_count--;
   // cancel timer
-  if (data_library->app_timers[index]) {
-    app_timer_cancel(data_library->app_timers[index]->app_timer);
-    free(data_library->app_timers[index]);
-    data_library->app_timers[index] = NULL;
+  if (data_library->app_timers[index].app_timer) {
+    app_timer_cancel(data_library->app_timers[index].app_timer);
+    data_library->app_timers[index].app_timer = NULL;
   }
   // write out the new data
   persist_write_data(PERSIST_ALERTS_KEY, alert_data, sizeof(AlertData));
@@ -946,6 +953,7 @@ void data_print_csv(DataLibrary *data_library) {
   app_log(APP_LOG_LEVEL_INFO, "", 0, "=====================================================");
 }
 
+#ifdef PEBBLE_BACKGROUND_WORKER
 // Process a BatteryChargeState structure and add it to the data
 void data_process_new_battery_state(DataLibrary *data_library,
                                     BatteryChargeState battery_state) {
@@ -970,6 +978,7 @@ void data_process_new_battery_state(DataLibrary *data_library,
   AppWorkerMessage msg_data = { .data0 = WorkerMessageForeground };
   app_worker_send_message(0, &msg_data);
 }
+#endif
 
 // Destroy data and reload from persistent storage
 void data_reload(DataLibrary *data_library) {
@@ -980,10 +989,13 @@ void data_reload(DataLibrary *data_library) {
   data_library->head_node_index = 0;
   // read data from persistent storage
   if (!persist_exists(PERSIST_DATA_KEY)) {
+#ifdef PEBBLE_BACKGROUND_WORKER
     prv_first_launch_prep(data_library);
+#endif
   } else {
     prv_persist_read_data_block(data_library, 0);
     prv_calculate_charge_cycles(data_library, CYCLE_LINKED_LIST_MIN_SIZE);
+    data_refresh_all_alerts(data_library);
   }
 }
 
@@ -991,21 +1003,18 @@ void data_reload(DataLibrary *data_library) {
 DataLibrary *data_initialize(void) {
   // create new DataLibrary
   DataLibrary *data_library = MALLOC(sizeof(DataLibrary));
-  data_library->node_count = 0;
-  data_library->head_node_index = 0;
-  data_library->head_node = NULL;
-  data_library->data_is_contiguous = false;
+  memset(data_library, 0, sizeof(data_library));
   persist_read_data(PERSIST_ALERTS_KEY, &data_library->alert_data,
     persist_get_size(PERSIST_ALERTS_KEY));
-  data_library->alert_callback = NULL;
-  memset(data_library->app_timers, 0, sizeof(data_library->app_timers));
 #ifdef PEBBLE_BACKGROUND_WORKER
   data_library->data_logging_session = data_logging_create(DATA_LOGGING_TAG,
     DATA_LOGGING_BYTE_ARRAY, sizeof(DataNode), true);
 #endif
   // read data from persistent storage
   if (!persist_exists(PERSIST_DATA_KEY)) {
+#ifdef PEBBLE_BACKGROUND_WORKER
     prv_first_launch_prep(data_library);
+#endif
   } else {
     prv_persist_read_data_block(data_library, 0);
     prv_calculate_charge_cycles(data_library, CYCLE_LINKED_LIST_MIN_SIZE);
@@ -1016,13 +1025,6 @@ DataLibrary *data_initialize(void) {
 
 // Terminate the data
 void data_terminate(DataLibrary *data_library) {
-  // free timers
-  for (uint8_t index = 0; index < data_library->alert_data.scheduled_count; index++) {
-    if (data_library->app_timers[index]) {
-      app_timer_cancel(data_library->app_timers[index]->app_timer);
-      free(data_library->app_timers[index]);
-    }
-  }
   // free other data
   prv_linked_list_destroy((Node**)&data_library->cycle_head_node, &data_library->cycle_node_count);
   prv_linked_list_destroy((Node**)&data_library->head_node, &data_library->node_count);
