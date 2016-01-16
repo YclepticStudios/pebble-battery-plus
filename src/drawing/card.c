@@ -171,7 +171,6 @@ static void prv_layer_update_handler(Layer *layer, GContext *ctx) {
       if (card_layer->bmp_buff) {
         gbitmap_destroy(card_layer->bmp_buff);
       }
-      printf("Creating: %d", (int)heap_bytes_free());
       prv_create_screen_bitmap(card_layer, ctx);
       card_layer->pending_refresh = false;
     }
