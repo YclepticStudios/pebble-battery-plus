@@ -20,6 +20,9 @@
 //! Refresh current card
 void drawing_refresh(void);
 
+//! Free all card caches
+void drawing_free_caches(void);
+
 //! Set the visible state of the action menu dot
 //! @param visible The state the action menu dot should be set to
 void drawing_set_action_menu_dot(bool visible);

@@ -21,7 +21,8 @@ typedef void (*CardRenderHandler)(Layer*, GContext*, uint16_t, DataLibrary*);
 
 //! Free the rendered cache of the card if it is not visible
 //! @param layer Pointer to base layer for card
-void card_free_cache_if_hidden(Layer *layer);
+//! @param force Force the cache to free regardless
+void card_free_cache_if_hidden(Layer *layer, bool force);
 
 //! Render the card and cache it the next chance possible
 //! @param layer Pointer to base layer for card

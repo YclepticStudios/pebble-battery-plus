@@ -887,66 +887,66 @@ uint16_t data_get_data_point_count_including_seconds(DataLibrary *data_library, 
 
 // Print the data to the console in CSV format
 void data_print_csv(DataLibrary *data_library) {
-  DataNode cur_data_node = prv_get_current_data_node(data_library);
-  // print header
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "=====================================================");
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Battery+ by Ycleptic Studios");
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "-----------------------------------------------------");
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "All timestamps are in UTC epoch format.");
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "'Charge Rate' represents the inverse of the rate of");
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "change of the battery percentage with respect to");
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "time. It is in seconds per percent.");
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Any value of -1 represents an invalid statistic.");
-  // print stats
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "--------------------- Statistics --------------------");
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Current Time:\t%d", (int)time(NULL));
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Last Charged:\t%d",
-    (int)(time(NULL) - data_get_run_time(data_library, 0)));
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Time Remaining:\t%d",
-    (int)data_get_life_remaining(data_library));
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Maximum Life:\t%d",
-    (int)data_get_max_life(data_library, 0));
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Run Time:\t%d",
-    (int)data_get_run_time(data_library, 0));
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Record Life:\t%d",
-    (int)data_get_record_run_time(data_library));
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Battery Percent:\t%d", (int)data_get_battery_percent
-    (data_library));
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Percent per Day:\t%d",
-    (int)data_get_percent_per_day(data_library));
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Rate:\t%d", (int)cur_data_node.charge_rate);
-  // print interpreted charge cycles
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "------------------- Charge Cycles -------------------");
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Start,\tRun Start,\tRun Stop,\tAvg Charge "
-    "Rate,");
-  uint16_t cycle_count = 0;
-  ChargeCycleNode *cur_cycle_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index
-    ((Node*)data_library->cycle_head_node, cycle_count);
-  while (cur_cycle_node) {
-    cycle_count++;
-    app_log(APP_LOG_LEVEL_INFO, "", 0, "%d,\t%d,\t%d,\t%d,",
-      (int)cur_cycle_node->charge_epoch, (int)cur_cycle_node->discharge_epoch,
-      (int)cur_cycle_node->end_epoch, (int)cur_cycle_node->avg_charge_rate);
-    cur_cycle_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index
-      ((Node*)data_library->cycle_head_node, cycle_count);
-  }
-
-  // print raw data points
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "---------------------- Raw Data ---------------------");
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Epoch,\t\tPerc,\tChar,\tPlug,\tContig,\tCharge Rate,");
-  uint16_t data_count = 0;
-  DataNode *cur_node = prv_list_get_data_node(data_library, data_count);
-  while (cur_node) {
-    data_count++;
-    app_log(APP_LOG_LEVEL_INFO, "", 0, "%d,\t%d,\t%d,\t%d,\t%d,\t%d,",
-      (int)cur_node->epoch, (int)cur_node->percent, (int)cur_node->charging, (int)cur_node->plugged,
-      (int)cur_node->contiguous, (int)cur_node->charge_rate);
-    cur_node = prv_list_get_data_node(data_library, data_count);
-  }
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "-----------------------------------------------------");
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Cycle Count: %d", cycle_count);
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "Data Point Count: %d", data_count);
-  app_log(APP_LOG_LEVEL_INFO, "", 0, "=====================================================");
+//  DataNode cur_data_node = prv_get_current_data_node(data_library);
+//  // print header
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "=====================================================");
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Battery+ by Ycleptic Studios");
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "-----------------------------------------------------");
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "All timestamps are in UTC epoch format.");
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "'Charge Rate' represents the inverse of the rate of");
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "change of the battery percentage with respect to");
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "time. It is in seconds per percent.");
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Any value of -1 represents an invalid statistic.");
+//  // print stats
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "--------------------- Statistics --------------------");
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Current Time:\t%d", (int)time(NULL));
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Last Charged:\t%d",
+//    (int)(time(NULL) - data_get_run_time(data_library, 0)));
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Time Remaining:\t%d",
+//    (int)data_get_life_remaining(data_library));
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Maximum Life:\t%d",
+//    (int)data_get_max_life(data_library, 0));
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Run Time:\t%d",
+//    (int)data_get_run_time(data_library, 0));
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Record Life:\t%d",
+//    (int)data_get_record_run_time(data_library));
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Battery Percent:\t%d", (int)data_get_battery_percent
+//    (data_library));
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Percent per Day:\t%d",
+//    (int)data_get_percent_per_day(data_library));
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Rate:\t%d", (int)cur_data_node.charge_rate);
+//  // print interpreted charge cycles
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "------------------- Charge Cycles -------------------");
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Start,\tRun Start,\tRun Stop,\tAvg Charge "
+//    "Rate,");
+//  uint16_t cycle_count = 0;
+//  ChargeCycleNode *cur_cycle_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index
+//    ((Node*)data_library->cycle_head_node, cycle_count);
+//  while (cur_cycle_node) {
+//    cycle_count++;
+//    app_log(APP_LOG_LEVEL_INFO, "", 0, "%d,\t%d,\t%d,\t%d,",
+//      (int)cur_cycle_node->charge_epoch, (int)cur_cycle_node->discharge_epoch,
+//      (int)cur_cycle_node->end_epoch, (int)cur_cycle_node->avg_charge_rate);
+//    cur_cycle_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index
+//      ((Node*)data_library->cycle_head_node, cycle_count);
+//  }
+//
+//  // print raw data points
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "---------------------- Raw Data ---------------------");
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Epoch,\t\tPerc,\tChar,\tPlug,\tContig,\tCharge Rate,");
+//  uint16_t data_count = 0;
+//  DataNode *cur_node = prv_list_get_data_node(data_library, data_count);
+//  while (cur_node) {
+//    data_count++;
+//    app_log(APP_LOG_LEVEL_INFO, "", 0, "%d,\t%d,\t%d,\t%d,\t%d,\t%d,",
+//      (int)cur_node->epoch, (int)cur_node->percent, (int)cur_node->charging, (int)cur_node->plugged,
+//      (int)cur_node->contiguous, (int)cur_node->charge_rate);
+//    cur_node = prv_list_get_data_node(data_library, data_count);
+//  }
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "-----------------------------------------------------");
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Cycle Count: %d", cycle_count);
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Data Point Count: %d", data_count);
+//  app_log(APP_LOG_LEVEL_INFO, "", 0, "=====================================================");
 }
 
 #ifdef PEBBLE_BACKGROUND_WORKER

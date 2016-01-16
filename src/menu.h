@@ -13,13 +13,6 @@
 #include <pebble.h>
 #include "data/data_library.h"
 
-//! Show the action menu
+//! Create and show the action menu
 //! @param data_library A pointer to the main DataLibrary from which to get information
 void menu_show(DataLibrary *data_library);
-
-//! Initialize action menu
-//! @param data_library A pointer to the main DataLibrary from which to get information
-void menu_initialize(DataLibrary *data_library);
-
-//! Destroy action menu
-void menu_terminate(void);

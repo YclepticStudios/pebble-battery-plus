@@ -63,17 +63,13 @@ static void prv_top_layer_update_proc_handler(Layer *layer, GContext *ctx) {
   graphics_fill_circle(ctx, center, ACTION_DOT_RADIUS);
 }
 
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// Callbacks
-//
-
+// Animation callback handler
 static void prv_animation_handler(void) {
   // update card positions
   prv_position_cards();
   // check if out of view
   for (int8_t ii = 0; ii < DRAWING_CARD_COUNT; ii++) {
-    card_free_cache_if_hidden(drawing_data.card_layer[ii]);
+    card_free_cache_if_hidden(drawing_data.card_layer[ii], false);
   }
   // redraw topmost layer
   layer_mark_dirty(drawing_data.top_layer);
@@ -90,6 +86,14 @@ void drawing_refresh(void) {
     ((drawing_data.scroll_offset / drawing_data.window_bounds.size.h) % DRAWING_CARD_COUNT - 1)) %
     DRAWING_CARD_COUNT;
   card_render(drawing_data.card_layer[card_index]);
+}
+
+// Free all card caches
+void drawing_free_caches(void) {
+  // loop over cards and force them to free their cache
+  for (uint8_t ii = 0; ii < DRAWING_CARD_COUNT; ii++) {
+    card_free_cache_if_hidden(drawing_data.card_layer[ii], true);
+  }
 }
 
 // Set the visible state of the action menu dot
@@ -122,6 +126,11 @@ void drawing_render_next_card(bool up) {
     DRAWING_CARD_COUNT;
   uint8_t next_card_index = (cur_card_index + (up ? -1 : 1) + DRAWING_CARD_COUNT) %
     DRAWING_CARD_COUNT;
+  // free the previous cache on Aplite
+#ifdef PBL_BW
+  card_free_cache_if_hidden(drawing_data.card_layer[cur_card_index], true);
+#endif
+  // render the next card
   card_render(drawing_data.card_layer[next_card_index]);
   // move next card underneath current card to hide rendering
   layer_insert_below_sibling(drawing_data.card_layer[next_card_index],
@@ -156,6 +165,7 @@ void drawing_initialize(Layer *window_layer, DataLibrary *data_library) {
     CARD_BACK_COLOR_LINE_GRAPH, card_render_line_graph, data_library);
   drawing_data.card_layer[2] = card_initialize(drawing_data.window_bounds, CARD_PALETTE_DASHBOARD,
     CARD_BACK_COLOR_DASHBOARD, card_render_dashboard, data_library);
+  prv_position_cards();
   // add to window
   for (uint8_t ii = 0; ii < DRAWING_CARD_COUNT; ii++) {
     layer_add_child(window_layer, drawing_data.card_layer[ii]);

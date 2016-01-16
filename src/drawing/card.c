@@ -40,7 +40,10 @@ static void prv_create_screen_bitmap(CardLayer *card_layer, GContext *ctx) {
 #ifdef PBL_BW
   GBitmapFormat bmp_format = gbitmap_get_format(old_bmp);
   card_layer->bmp_buff = gbitmap_create_blank(bmp_bounds.size, bmp_format);
-  ASSERT(card_layer->bmp_buff);
+  if (!card_layer->bmp_buff) {
+    graphics_release_frame_buffer(ctx, old_bmp);
+    return;
+  }
   uint32_t bmp_length = gbitmap_get_bytes_per_row(card_layer->bmp_buff) * bmp_bounds.size.h;
   memcpy(gbitmap_get_data(card_layer->bmp_buff), gbitmap_get_data(old_bmp), bmp_length);
 #else
@@ -59,10 +62,19 @@ static void prv_create_screen_bitmap(CardLayer *card_layer, GContext *ctx) {
   uint8_t palette_colors = 0;
   uint8_t palette_max_colors = (bmp_bits_per_pixel == 1) ? 2 :
     (bmp_bits_per_pixel * bmp_bits_per_pixel);
-  GColor *palette = MALLOC(sizeof(GColor) * palette_max_colors);
-  card_layer->bmp_buff = gbitmap_create_blank_with_palette(bmp_bounds.size, card_layer->bmp_format,
-    palette, true);
-  ASSERT(card_layer->bmp_buff);
+  GColor *palette = malloc(sizeof(GColor) * palette_max_colors);
+  if (palette) {
+    card_layer->bmp_buff = gbitmap_create_blank_with_palette(bmp_bounds.size,
+      card_layer->bmp_format, palette, true);
+  }
+  // check if out of memory
+  if (!palette || !card_layer->bmp_buff) {
+    free(palette);
+    free(card_layer->bmp_buff);
+    card_layer->bmp_buff = NULL;
+    graphics_release_frame_buffer(ctx, old_bmp);
+    return;
+  }
   // loop over image rows
   GBitmapDataRowInfo old_row_info, new_row_info;
   for (uint8_t row = 0; row < bmp_bounds.size.h; row++) {
@@ -159,9 +171,12 @@ static void prv_layer_update_handler(Layer *layer, GContext *ctx) {
       if (card_layer->bmp_buff) {
         gbitmap_destroy(card_layer->bmp_buff);
       }
+      printf("Creating: %d", (int)heap_bytes_free());
       prv_create_screen_bitmap(card_layer, ctx);
       card_layer->pending_refresh = false;
-    } else {
+    }
+#ifndef PBL_BW
+    if (!card_layer->bmp_buff) {
       // draw loading text
       graphics_context_set_text_color(ctx, GColorBlack);
       GRect txt_bounds = bounds;
@@ -170,6 +185,7 @@ static void prv_layer_update_handler(Layer *layer, GContext *ctx) {
       graphics_draw_text(ctx, "Loading...", fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
         txt_bounds, GTextOverflowModeFill, GTextAlignmentCenter, NULL);
     }
+#endif
   } else {
     // draw bitmap
     GRect bounds = layer_get_bounds(layer);
@@ -184,10 +200,10 @@ static void prv_layer_update_handler(Layer *layer, GContext *ctx) {
 //
 
 // Free the rendered cache of the card if it is not visible
-void card_free_cache_if_hidden(Layer *layer) {
+void card_free_cache_if_hidden(Layer *layer, bool force) {
   // check if visible
   GRect bounds = layer_get_bounds(layer);
-  if (bounds.origin.y >= bounds.size.h || bounds.origin.y <= -bounds.size.h) {
+  if (bounds.origin.y >= bounds.size.h || bounds.origin.y <= -bounds.size.h || force) {
     CardLayer *card_layer = layer_get_data(layer);
     gbitmap_destroy(card_layer->bmp_buff);
     card_layer->bmp_buff = NULL;
@@ -221,7 +237,7 @@ Layer *card_initialize(GRect bounds, GBitmapFormat bmp_format, GColor background
   card_layer->bmp_format = bmp_format;
   card_layer->background_color = background_color;
   card_layer->click_count = 0;
-  card_layer->pending_refresh = true;
+  card_layer->pending_refresh = false;
   card_layer->render_handler = render_handler;
   card_layer->data_library = data_library;
   // return layer pointer

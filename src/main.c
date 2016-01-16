@@ -52,6 +52,9 @@ static void select_click_up_handler(ClickRecognizerRef recognizer, void *context
 
 // Select long click handler
 static void select_long_click_handler(ClickRecognizerRef recognizer, void *context) {
+  // free memory from drawing caches
+  drawing_free_caches();
+  // show the action menu
   menu_show(main_data.data_library);
   drawing_set_action_menu_dot(false);
 }
@@ -91,8 +94,6 @@ static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
   if (data->data0 == WorkerMessageForeground) {
     // update the data
     data_reload(main_data.data_library);
-    menu_terminate();
-    menu_initialize(main_data.data_library);
   }
   // refresh the screen
   drawing_refresh();
@@ -130,8 +131,6 @@ static void prv_initialize_main(void) {
   window_stack_push(main_data.window, true);
   // initialize drawing layers
   drawing_initialize(window_root, main_data.data_library);
-  // initialize action menu
-  menu_initialize(main_data.data_library);
   // subscribe to services
   app_worker_message_subscribe(prv_worker_message_handler);
   tick_timer_service_subscribe(MINUTE_UNIT, prv_tick_timer_service_handler);
@@ -143,7 +142,6 @@ static void prv_terminate_main(void) {
   app_worker_message_unsubscribe();
   tick_timer_service_unsubscribe();
   // destroy
-  menu_terminate();
   drawing_terminate();
   window_destroy(main_data.window);
   // unload data

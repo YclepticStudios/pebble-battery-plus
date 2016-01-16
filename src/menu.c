@@ -51,9 +51,6 @@ static void prv_pin_window_return_handler(bool canceled, uint8_t value_count, in
     data_schedule_alert(window_context->data_library, new_threshold);
     // close pin window
     window_stack_pop(true);
-    // reload action menu
-    menu_terminate();
-    menu_initialize(window_context->data_library);
     // show popup notification
     Window *popup_window = popup_window_create(true);
     popup_window_set_visual(popup_window, RESOURCE_ID_CONFIRM_SEQUENCE);
@@ -93,9 +90,6 @@ static void prv_alert_delete_handler(ActionMenu *action_menu, const ActionMenuIt
                                      void *context) {
   uint8_t index = (int32_t)action_menu_item_get_action_data(item);
   data_unschedule_alert(context, index);
-  // reload action menu
-  menu_terminate();
-  menu_initialize(context);
   // show popup notification
   Window *popup_window = popup_window_create(true);
   popup_window_set_visual(popup_window, RESOURCE_ID_DELETED_SEQUENCE);
@@ -135,29 +129,19 @@ static void prv_action_performed_handler(ActionMenu *action_menu, const ActionMe
   }
 }
 
+// Menu did close callback
+static void prv_menu_did_close_handler(ActionMenu *action_menu,
+                                       const ActionMenuItem *performed_action, void *context) {
+  action_menu_hierarchy_destroy(s_root_level, NULL, NULL);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // API Interface
 //
 
-//! Show the action menu
+// Show the action menu
 void menu_show(DataLibrary *data_library) {
-  // configure action menu
-  ActionMenuConfig config = (ActionMenuConfig) {
-    .root_level = s_root_level,
-    .colors = {
-      .background = PBL_IF_COLOR_ELSE(GColorMagenta, GColorWhite),
-      .foreground = GColorBlack,
-    },
-    .align = ActionMenuAlignTop,
-    .context = data_library
-  };
-  // show the ActionMenu
-  s_action_menu = action_menu_open(&config);
-}
-
-//! Initialize action menu
-void menu_initialize(DataLibrary *data_library) {
   // create root level
   s_root_level = action_menu_level_create(2);
   // create data level
@@ -189,9 +173,17 @@ void menu_initialize(DataLibrary *data_library) {
     action_menu_level_add_action(s_alert_level, "Add Alert", prv_action_performed_handler,
       (void *) ActionTypeAddAlert);
   }
-}
-
-//! Destroy action menu
-void menu_terminate(void) {
-  action_menu_hierarchy_destroy(s_root_level, NULL, NULL);
+  // configure action menu
+  ActionMenuConfig config = (ActionMenuConfig) {
+    .root_level = s_root_level,
+    .colors = {
+      .background = PBL_IF_COLOR_ELSE(GColorMagenta, GColorWhite),
+      .foreground = GColorBlack,
+    },
+    .align = ActionMenuAlignTop,
+    .did_close = prv_menu_did_close_handler,
+    .context = data_library
+  };
+  // show the ActionMenu
+  s_action_menu = action_menu_open(&config);
 }
