@@ -1004,22 +1004,12 @@ DataLibrary *data_initialize(void) {
   // create new DataLibrary
   DataLibrary *data_library = MALLOC(sizeof(DataLibrary));
   memset(data_library, 0, sizeof(data_library));
-  persist_read_data(PERSIST_ALERTS_KEY, &data_library->alert_data,
-    persist_get_size(PERSIST_ALERTS_KEY));
 #ifdef PEBBLE_BACKGROUND_WORKER
   data_library->data_logging_session = data_logging_create(DATA_LOGGING_TAG,
     DATA_LOGGING_BYTE_ARRAY, sizeof(DataNode), true);
 #endif
   // read data from persistent storage
-  if (!persist_exists(PERSIST_DATA_KEY)) {
-#ifdef PEBBLE_BACKGROUND_WORKER
-    prv_first_launch_prep(data_library);
-#endif
-  } else {
-    prv_persist_read_data_block(data_library, 0);
-    prv_calculate_charge_cycles(data_library, CYCLE_LINKED_LIST_MIN_SIZE);
-    data_refresh_all_alerts(data_library);
-  }
+  data_reload(data_library);
   return data_library;
 }
 
