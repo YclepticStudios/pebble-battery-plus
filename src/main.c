@@ -111,7 +111,7 @@ static void prv_initialize_popup(void) {
   // create popup alert window
   Window *popup_window = popup_window_create(true);
   popup_window_set_close_on_animation_end(popup_window, true);
-  popup_window_set_background_color(popup_window, GColorChromeYellow);
+  window_set_background_color(popup_window, GColorChromeYellow);
   popup_window_set_visual(popup_window, RESOURCE_ID_CONFIRM_SEQUENCE);
   window_stack_push(popup_window, true);
 }

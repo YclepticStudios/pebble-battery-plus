@@ -149,11 +149,6 @@ void popup_window_set_text(Window *window, char *title_text, char *footer_text) 
   text_layer_set_text(window_data->footer_layer, footer_text);
 }
 
-// Set the window's background color
-void popup_window_set_background_color(Window *window, GColor color) {
-  window_set_background_color(window, color);
-}
-
 // Set whether the window closes when the animation finishes
 void popup_window_set_close_on_animation_end(Window *window, bool should_close) {
   PopupWindowData *window_data = window_get_user_data(window);

@@ -23,11 +23,6 @@ void popup_window_set_visual(Window *window, uint32_t resource_id);
 //! @param footer_text Text to display as a footer for the window
 void popup_window_set_text(Window *window, char *title_text, char *footer_text);
 
-//! Set the window's background color
-//! @param window The base window layer of the Popup window
-//! @param color The new color for the window background
-void popup_window_set_background_color(Window *window, GColor color);
-
 //! Set whether the window closes when the animation finishes
 //! @param window The base window layer of the Popup window
 //! @param should_close Whether the window should automatically close
