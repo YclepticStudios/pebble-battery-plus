@@ -14,7 +14,7 @@
 #include "../../data/data_library.h"
 
 // Constants
-#define CARD_BACK_COLOR_DASHBOARD GColorLightGray
+#define CARD_BACK_COLOR_DASHBOARD PBL_IF_COLOR_ELSE(GColorLightGray, GColorBlack)
 #define CARD_BACK_COLOR_LINE_GRAPH GColorMelon
 #define CARD_BACK_COLOR_BAR_GRAPH GColorElectricBlue
 #define CARD_PALETTE_DASHBOARD GBitmapFormat4BitPalette

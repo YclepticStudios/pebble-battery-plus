@@ -34,12 +34,21 @@
 // Alert colors and text for different counts and indices, accessed as [count][index]
 // smaller index is closer to empty time (smaller threshold)
 #ifndef PEBBLE_BACKGROUND_WORKER
+#ifdef PBL_COLOR
 static uint8_t prv_alert_colors[][4] = {
   { GColorRedARGB8 },
   { GColorRedARGB8, GColorYellowARGB8 },
   { GColorRedARGB8, GColorOrangeARGB8, GColorYellowARGB8 },
   { GColorRedARGB8, GColorOrangeARGB8, GColorChromeYellowARGB8, GColorYellowARGB8 }
 };
+#else
+static uint8_t prv_alert_colors[][4] = {
+  { GColorLightGrayARGB8 },
+  { GColorWhiteARGB8, GColorLightGrayARGB8 },
+  { GColorLightGrayARGB8, GColorWhiteARGB8, GColorLightGrayARGB8 },
+  { GColorWhiteARGB8, GColorLightGrayARGB8, GColorWhiteARGB8, GColorLightGrayARGB8 }
+};
+#endif
 #endif
 static char *prv_alert_text[][4] = {
   { "Low Alert" },

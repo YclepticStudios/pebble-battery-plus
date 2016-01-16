@@ -53,7 +53,9 @@ static void select_click_up_handler(ClickRecognizerRef recognizer, void *context
 // Select long click handler
 static void select_long_click_handler(ClickRecognizerRef recognizer, void *context) {
   // free memory from drawing caches
+#ifdef PBL_BW
   drawing_free_caches();
+#endif
   // show the action menu
   menu_show(main_data.data_library);
   drawing_set_action_menu_dot(false);
