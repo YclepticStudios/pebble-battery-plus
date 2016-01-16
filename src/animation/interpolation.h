@@ -32,12 +32,12 @@ typedef enum InterpolationCurve {
 int32_t interpolation_integer(int32_t from, int32_t to, uint32_t percent, uint32_t percent_max,
                               InterpolationCurve curve);
 
-//! Interpolation for GPoint type
-//! @param from The beginning point
-//! @param to The ending point
-//! @param percent The percent of the way into the animation
-//! @param percent_max The maximum percent to end the animation at
-//! @param curve The interpolation curve to use while calculating the new value
-//! @return The interpolated point
-GPoint interpolation_gpoint(GPoint from, GPoint to, uint32_t percent, uint32_t percent_max,
-                            InterpolationCurve curve);
+////! Interpolation for GPoint type
+////! @param from The beginning point
+////! @param to The ending point
+////! @param percent The percent of the way into the animation
+////! @param percent_max The maximum percent to end the animation at
+////! @param curve The interpolation curve to use while calculating the new value
+////! @return The interpolated point
+//GPoint interpolation_gpoint(GPoint from, GPoint to, uint32_t percent, uint32_t percent_max,
+//                            InterpolationCurve curve);
