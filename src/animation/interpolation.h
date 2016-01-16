@@ -14,12 +14,12 @@
 //! List of different interpolation curves
 typedef enum InterpolationCurve {
   CurveLinear,
-  CurveQuadEaseIn,
-  CurveQuadEaseOut,
-  CurveQuadEaseInOut,
-  CurveSinEaseIn,
+//  CurveQuadEaseIn,
+//  CurveQuadEaseOut,
+//  CurveQuadEaseInOut,
+//  CurveSinEaseIn,
   CurveSinEaseOut,
-  CurveSinEaseInOut
+//  CurveSinEaseInOut
 } InterpolationCurve;
 
 //! Interpolation for integer value

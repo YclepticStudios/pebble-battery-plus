@@ -13,7 +13,7 @@
 #include "../utility.h"
 
 // Animation constants
-#define ANIMATION_TICK_INTERVAL 10      //< Number of milliseconds to pause between animation ticks
+#define ANIMATION_TICK_INTERVAL 5      //< Number of milliseconds to pause between animation ticks
 
 // Animation pointer type
 typedef struct AnimationNode {
