@@ -23,7 +23,7 @@ typedef enum {
 
 // Pin window context
 typedef struct {
-  DataLibrary   *data_library;    //< Pointer to main data library
+  DataAPI       *data_api;    //< Pointer to main data library
   uint8_t       index;            //< Index of alert if editing
   bool          new_alert;        //< If true, create a new alert instead of editing one
 } PinWindowContext;
@@ -44,11 +44,11 @@ static void prv_pin_window_return_handler(bool canceled, uint8_t value_count, in
   if (!canceled) {
     if (!window_context->new_alert) {
       // destroy current alert
-      data_unschedule_alert(window_context->data_library, window_context->index);
+      data_api_unschedule_alert(window_context->data_api, window_context->index);
     }
     // create new alert
     int32_t new_threshold = values[0] * SEC_IN_DAY + values[1] * SEC_IN_HR;
-    data_schedule_alert(window_context->data_library, new_threshold);
+    data_api_schedule_alert(window_context->data_api, new_threshold);
     // close pin window
     window_stack_pop(true);
     // show popup notification
@@ -68,13 +68,13 @@ static void prv_alert_edit_handler(ActionMenu *action_menu, const ActionMenuItem
   uint8_t index = (int32_t)action_menu_item_get_action_data(item);
   // create pin window context
   PinWindowContext *window_context = MALLOC(sizeof(PinWindowContext));
-  window_context->data_library = context;
+  window_context->data_api = context;
   window_context->index = index;
   window_context->new_alert = false;
   // get current alert duration
   uint8_t cur_values[2];
-  cur_values[0] = data_get_alert_threshold(context, index) / SEC_IN_DAY;
-  cur_values[1] = data_get_alert_threshold(context, index) % SEC_IN_DAY / SEC_IN_HR;
+  cur_values[0] = data_api_get_alert_threshold(context, index) / SEC_IN_DAY;
+  cur_values[1] = data_api_get_alert_threshold(context, index) % SEC_IN_DAY / SEC_IN_HR;
   // edit duration of alert with pin window
   Window *window = pin_window_create(2, true);
   pin_window_set_field_values(window, cur_values);
@@ -89,7 +89,7 @@ static void prv_alert_edit_handler(ActionMenu *action_menu, const ActionMenuItem
 static void prv_alert_delete_handler(ActionMenu *action_menu, const ActionMenuItem *item,
                                      void *context) {
   uint8_t index = (int32_t)action_menu_item_get_action_data(item);
-  data_unschedule_alert(context, index);
+  data_api_unschedule_alert(context, index);
   // show popup notification
   Window *popup_window = popup_window_create(true);
   popup_window_set_visual(popup_window, RESOURCE_ID_DELETED_SEQUENCE);
@@ -110,12 +110,12 @@ static void prv_action_performed_handler(ActionMenu *action_menu, const ActionMe
       break;
     case ActionTypeDataExport:
       // TODO: Add busy screen when printing
-      data_print_csv(context);
+      data_api_print_csv(context);
       break;
     case ActionTypeAddAlert:;
       // create pin window context
       PinWindowContext *window_context = MALLOC(sizeof(PinWindowContext));
-      window_context->data_library = context;
+      window_context->data_api = context;
       window_context->new_alert = true;
       // get duration of alert with pin window
       Window *window = pin_window_create(2, true);
@@ -141,7 +141,7 @@ static void prv_menu_did_close_handler(ActionMenu *action_menu,
 //
 
 // Show the action menu
-void menu_show(DataLibrary *data_library) {
+void menu_show(DataAPI *data_api) {
   // create root level
   s_root_level = action_menu_level_create(2);
   // create data level
@@ -153,17 +153,17 @@ void menu_show(DataLibrary *data_library) {
     (void*)ActionTypeDataExport);
   // create alert level
   int days, hours;
-  uint8_t alert_count = data_get_alert_count(data_library);
+  uint8_t alert_count = data_api_get_alert_count(data_api);
   static char label_buffs[DATA_MAX_ALERT_COUNT][19];
   s_alert_level = action_menu_level_create(alert_count + 1);
   action_menu_level_add_child(s_root_level, s_alert_level, "Alerts");
   ActionMenuLevel *menu_level;
   for (int32_t index = 0; index < alert_count; index++) {
     // get the label text
-    days = data_get_alert_threshold(data_library, index) / SEC_IN_DAY;
-    hours = data_get_alert_threshold(data_library, index) % SEC_IN_DAY / SEC_IN_HR;
+    days = data_api_get_alert_threshold(data_api, index) / SEC_IN_DAY;
+    hours = data_api_get_alert_threshold(data_api, index) % SEC_IN_DAY / SEC_IN_HR;
     snprintf(label_buffs[index], sizeof(label_buffs[index]), "%s\n(%dd %02dh)",
-      data_get_alert_text(data_library, index), days, hours);
+      data_api_get_alert_text(data_api, index), days, hours);
     menu_level = action_menu_level_create(2);
     action_menu_level_add_child(s_alert_level, menu_level, label_buffs[index]);
     action_menu_level_add_action(menu_level, "Edit", prv_alert_edit_handler, (void*)index);
@@ -182,7 +182,7 @@ void menu_show(DataLibrary *data_library) {
     },
     .align = ActionMenuAlignTop,
     .did_close = prv_menu_did_close_handler,
-    .context = data_library
+    .context = data_api
   };
   // show the ActionMenu
   s_action_menu = action_menu_open(&config);

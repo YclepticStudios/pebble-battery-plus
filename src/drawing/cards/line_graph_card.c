@@ -36,7 +36,7 @@ static void prv_render_text(GContext *ctx, GRect bounds) {
 
 // Render line and fill
 static void prv_render_line(GContext *ctx, GRect bounds, int32_t graph_x_range,
-                            DataLibrary *data_library) {
+                            DataAPI *data_api) {
   // prep draw
   GRect graph_bounds = GRect(GRAPH_HORIZONTAL_INSET, GRAPH_TOP_INSET, bounds.size.w -
     GRAPH_HORIZONTAL_INSET * 2, bounds.size.h - GRAPH_TOP_INSET - GRAPH_BOTTOM_INSET);
@@ -45,17 +45,17 @@ static void prv_render_line(GContext *ctx, GRect bounds, int32_t graph_x_range,
   int32_t node_epoch;
   uint8_t node_percent;
   int32_t cur_epoch = time(NULL);
-  int16_t data_point_count = data_get_data_point_count_including_seconds(data_library,
+  int16_t data_point_count = data_api_get_data_point_count_including_seconds(data_api,
     graph_x_range);
   GPoint data_points[data_point_count + 3];
   // add data point for current estimated battery percent so graph reaches right edge of screen
   data_points[index].x = graph_bounds.origin.x + graph_bounds.size.w;
   data_points[index].y = graph_bounds.origin.y + graph_bounds.size.h -
-    graph_bounds.size.h * data_get_battery_percent(data_library) / GRAPH_Y_RANGE;
+    graph_bounds.size.h * data_api_get_battery_percent(data_api) / GRAPH_Y_RANGE;
   index++;
   for (uint16_t ii = 0; ii < data_point_count; ii++) {
     // get the data point
-    data_get_data_point(data_library, index - 1, &node_epoch, &node_percent);
+    data_api_get_data_point(data_api, index - 1, &node_epoch, &node_percent);
     // calculate screen location
     data_points[index].x = graph_bounds.origin.x + graph_bounds.size.w -
       graph_bounds.size.w * (cur_epoch - node_epoch) / graph_x_range;
@@ -137,7 +137,7 @@ static void prv_render_axis(GContext *ctx, GRect bounds, int32_t graph_x_range) 
 
 // Rendering function for line graph card
 void card_render_line_graph(Layer *layer, GContext *ctx, uint16_t click_count,
-                            DataLibrary *data_library) {
+                            DataAPI *data_api) {
   // get bounds
   GRect bounds = layer_get_bounds(layer);
   bounds.origin = GPointZero;
@@ -154,7 +154,7 @@ void card_render_line_graph(Layer *layer, GContext *ctx, uint16_t click_count,
       graph_x_range = SEC_IN_WEEK;
   }
   // render graph line and fill
-  prv_render_line(ctx, bounds, graph_x_range, data_library);
+  prv_render_line(ctx, bounds, graph_x_range, data_api);
   // render graph axis with days of the week
   prv_render_axis(ctx, bounds, graph_x_range);
   // render text

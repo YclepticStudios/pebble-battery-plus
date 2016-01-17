@@ -48,7 +48,7 @@ static void prv_render_text(GContext *ctx, GRect bounds, uint16_t click_count) {
 
 // Render line and fill
 static void prv_render_bars(GContext *ctx, GRect bounds, uint16_t click_count,
-                            DataLibrary *data_library) {
+                            DataAPI *data_api) {
   // prep draw
   GRect graph_bounds = GRect(GRAPH_HORIZONTAL_INSET, GRAPH_TOP_INSET, bounds.size.w -
     GRAPH_HORIZONTAL_INSET * 2, bounds.size.h - GRAPH_TOP_INSET - GRAPH_BOTTOM_INSET);
@@ -56,15 +56,15 @@ static void prv_render_bars(GContext *ctx, GRect bounds, uint16_t click_count,
   int32_t avg_run_time = 0, avg_max_life = 0;
   int16_t bar_width = graph_bounds.size.w / GRAPH_NUMBER_OF_BARS;
   int32_t graph_y_max = 0;
-  uint16_t cycle_point_count = data_get_charge_cycle_count_including_seconds(data_library, 0);
+  uint16_t cycle_point_count = data_api_get_charge_cycle_count_including_seconds(data_api, 0);
   for (uint16_t ii = 0; ii < cycle_point_count; ii++) {
-    avg_run_time += data_get_run_time(data_library, ii);
-    avg_max_life += data_get_max_life(data_library, ii);
-    if (data_get_run_time(data_library, ii) > graph_y_max) {
-      graph_y_max = data_get_run_time(data_library, ii);
+    avg_run_time += data_api_get_run_time(data_api, ii);
+    avg_max_life += data_api_get_max_life(data_api, ii);
+    if (data_api_get_run_time(data_api, ii) > graph_y_max) {
+      graph_y_max = data_api_get_run_time(data_api, ii);
     }
-    if (data_get_max_life(data_library, ii) > graph_y_max) {
-      graph_y_max = data_get_max_life(data_library, ii);
+    if (data_api_get_max_life(data_api, ii) > graph_y_max) {
+      graph_y_max = data_api_get_max_life(data_api, ii);
     }
   }
   avg_max_life /= cycle_point_count;
@@ -77,14 +77,14 @@ static void prv_render_bars(GContext *ctx, GRect bounds, uint16_t click_count,
   for (uint16_t ii = 0; ii < cycle_point_count; ii++) {
     // draw max life bar
     bar_bounds.origin.x = graph_bounds.origin.x + graph_bounds.size.w - (bar_width * (ii + 1));
-    bar_bounds.size.h = graph_bounds.size.h * data_get_max_life(data_library, ii) /
+    bar_bounds.size.h = graph_bounds.size.h * data_api_get_max_life(data_api, ii) /
       graph_y_max;
     bar_bounds.origin.y = graph_bounds.origin.y + graph_bounds.size.h - bar_bounds.size.h;
     graphics_context_set_fill_color(ctx, COLOR_MAX_LIFE);
     graphics_fill_rect(ctx, bar_bounds, 0, GCornerNone);
     graphics_draw_rect(ctx, bar_bounds);
     // draw max life bar
-    bar_bounds.size.h = graph_bounds.size.h * data_get_run_time(data_library, ii) /
+    bar_bounds.size.h = graph_bounds.size.h * data_api_get_run_time(data_api, ii) /
       graph_y_max;
     bar_bounds.origin.y = graph_bounds.origin.y + graph_bounds.size.h - bar_bounds.size.h;
     graphics_context_set_fill_color(ctx, COLOR_RUN_TIME);
@@ -161,12 +161,12 @@ static void prv_render_axis(GContext *ctx, GRect bounds) {
 
 // Rendering function for bar graph card
 void card_render_bar_graph(Layer *layer, GContext *ctx, uint16_t click_count,
-                           DataLibrary *data_library) {
+                           DataAPI *data_api) {
   // get bounds
   GRect bounds = layer_get_bounds(layer);
   bounds.origin = GPointZero;
   // render graph line and fill
-  prv_render_bars(ctx, bounds, click_count, data_library);
+  prv_render_bars(ctx, bounds, click_count, data_api);
   // render graph axis with days of the week
   prv_render_axis(ctx, bounds);
   // render text

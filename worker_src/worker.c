@@ -1,8 +1,10 @@
 // @file worker.c
-// @brief Background worker code
+// @brief Main background worker control file
 //
-// Background worker for Battery+.
-// Saves data when battery status changes and sends data to phone via DataLogging.
+// Background worker for Battery+. Controls acquiring new data, processing that data
+// and then receiving data requests from the foreground app. All the data is stored
+// in memory in the background app. The foreground app quires the background app for
+// specific data metrics.
 //
 // @author Eric D. Phillips
 // @date November 22, 2015
@@ -10,9 +12,10 @@
 
 #define PEBBLE_BACKGROUND_WORKER
 #include <pebble_worker.h>
+#include "data_library.h"
 #include "../src/utility.c"
-#include "../src/data/data_library.c"
 #undef PEBBLE_BACKGROUND_WORKER
+
 
 // Main variables
 static DataLibrary *data_library;
@@ -27,9 +30,8 @@ static void prv_battery_alert_handler(uint8_t alert_index) {
 
 // Worker message callback
 static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
-  if (data->data0 == WorkerMessageBackground) {
-    data_refresh_all_alerts(data_library);
-  }
+  // TODO: Deal with this
+  data_refresh_all_alerts(data_library);
 }
 
 // Battery state change callback

@@ -13,10 +13,10 @@
 
 #pragma once
 #include <pebble.h>
-#include "../data/data_library.h"
+#include "../data/data_api.h"
 
 //! Card callback type
-typedef void (*CardRenderHandler)(Layer*, GContext*, uint16_t, DataLibrary*);
+typedef void (*CardRenderHandler)(Layer*, GContext*, uint16_t, DataAPI*);
 
 
 //! Free the rendered cache of the card if it is not visible
@@ -36,10 +36,10 @@ void card_select_click(Layer *layer);
 //! @param bmp_format The GBitmapFormat to cache the rendered screen in
 //! @param background_color The background fill color of the card
 //! @param render_handler The function which will be called to render this card
-//! @param data_library A pointer to the main data library from which to get information
+//! @param data_api A pointer to the main data library from which to get information
 //! @return A pointer to the base layer of this card
 Layer *card_initialize(GRect bounds, GBitmapFormat bmp_format, GColor background_color,
-                       CardRenderHandler render_handler, DataLibrary *data_library);
+                       CardRenderHandler render_handler, DataAPI *data_api);
 
 //! Terminate card
 //! @param layer Pointer to base layer for card

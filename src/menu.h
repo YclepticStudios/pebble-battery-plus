@@ -11,8 +11,8 @@
 
 #pragma once
 #include <pebble.h>
-#include "data/data_library.h"
+#include "data/data_api.h"
 
 //! Create and show the action menu
-//! @param data_library A pointer to the main DataLibrary from which to get information
-void menu_show(DataLibrary *data_library);
+//! @param data_api A pointer to the main DataLibrary from which to get information
+void menu_show(DataAPI *data_api);

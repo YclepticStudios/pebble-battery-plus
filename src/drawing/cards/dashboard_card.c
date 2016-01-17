@@ -25,10 +25,10 @@
 //
 
 // Render battery percent text
-static void prv_render_battery_percent(GContext *ctx, GRect bounds, DataLibrary *data_library) {
+static void prv_render_battery_percent(GContext *ctx, GRect bounds, DataAPI *data_api) {
   // get text
   char buff[4];
-  snprintf(buff, sizeof(buff), "%d", data_get_battery_percent(data_library));
+  snprintf(buff, sizeof(buff), "%d", data_api_get_battery_percent(data_api));
   // get bounds
   GRect txt_bounds = grect_inset(bounds, GEdgeInsets1(RING_WIDTH));
   txt_bounds.size.h /= 2;
@@ -44,33 +44,33 @@ static void prv_render_battery_percent(GContext *ctx, GRect bounds, DataLibrary 
 
 // Render selected text showing times for colors on ring
 static void prv_render_selected_text(GContext *ctx, GRect bounds, uint16_t click_count,
-                                     DataLibrary *data_library) {
+                                     DataAPI *data_api) {
   // get display mode
   char *hint_text;
   GColor selection_color;
-  int32_t selection_value = data_get_life_remaining(data_library);
+  int32_t selection_value = data_api_get_life_remaining(data_api);
   uint16_t tmp_max_modes = 2;
-  for (uint8_t index = 0; index < data_get_alert_count(data_library); index++) {
-    if (selection_value > data_get_alert_threshold(data_library, index)) {
+  for (uint8_t index = 0; index < data_api_get_alert_count(data_api); index++) {
+    if (selection_value > data_api_get_alert_threshold(data_api, index)) {
       tmp_max_modes++;
     }
   }
   uint16_t cur_mode = click_count % tmp_max_modes;
   if (cur_mode == 0) {
     hint_text = "Remaining";
-    if (tmp_max_modes - 2 == data_get_alert_count(data_library)) {
+    if (tmp_max_modes - 2 == data_api_get_alert_count(data_api)) {
       selection_color = COLOR_RING_NORM;
     } else {
-      selection_color = data_get_alert_color(data_library, tmp_max_modes - 2);
+      selection_color = data_api_get_alert_color(data_api, tmp_max_modes - 2);
     }
   } else if (cur_mode == 1) {
     hint_text = "Run Time";
     selection_color = COLOR_RING_EMPTY;
-    selection_value = data_get_run_time(data_library, 0);
+    selection_value = data_api_get_run_time(data_api, 0);
   } else {
-    hint_text = data_get_alert_text(data_library, cur_mode - 2);
-    selection_color = data_get_alert_color(data_library, cur_mode - 2);
-    selection_value = data_get_alert_threshold(data_library, cur_mode - 2);
+    hint_text = data_api_get_alert_text(data_api, cur_mode - 2);
+    selection_color = data_api_get_alert_color(data_api, cur_mode - 2);
+    selection_value = data_api_get_alert_threshold(data_api, cur_mode - 2);
   }
   // get text
   int days = selection_value / SEC_IN_DAY;
@@ -109,16 +109,16 @@ static void prv_render_selected_text(GContext *ctx, GRect bounds, uint16_t click
 }
 
 // Render progress ring
-static void prv_render_ring(GContext *ctx, GRect bounds, DataLibrary *data_library) {
+static void prv_render_ring(GContext *ctx, GRect bounds, DataAPI *data_api) {
   // calculate angles for ring color change positions
-  int32_t max_life_sec = data_get_max_life(data_library, 0);
+  int32_t max_life_sec = data_api_get_max_life(data_api, 0);
   uint8_t angle_count = 0;
   int32_t angles[DATA_MAX_ALERT_COUNT + 2];
   // calculate angles
-  angles[angle_count++] = TRIG_MAX_ANGLE * data_get_battery_percent(data_library) / 100;
+  angles[angle_count++] = TRIG_MAX_ANGLE * data_api_get_battery_percent(data_api) / 100;
   angles[angle_count++] = 0;
-  for (uint8_t index = 0; index < data_get_alert_count(data_library); index++) {
-    angles[angle_count] = TRIG_MAX_ANGLE * (int64_t)data_get_alert_threshold(data_library, index) /
+  for (uint8_t index = 0; index < data_api_get_alert_count(data_api); index++) {
+    angles[angle_count] = TRIG_MAX_ANGLE * (int64_t)data_api_get_alert_threshold(data_api, index) /
       max_life_sec;
     // reduce in size to the maximum angle
     if (angles[angle_count] > angles[0]) {
@@ -130,7 +130,7 @@ static void prv_render_ring(GContext *ctx, GRect bounds, DataLibrary *data_libra
   GColor colors[ARRAY_LENGTH(angles)];
   colors[0] = COLOR_RING_EMPTY;
   for (uint8_t index = 1; index < angle_count - 1; index++) {
-    colors[index] = data_get_alert_color(data_library, index - 1);
+    colors[index] = data_api_get_alert_color(data_api, index - 1);
   }
   colors[angle_count - 1] = COLOR_RING_NORM;
   // calculate outer ring bounds
@@ -173,16 +173,16 @@ static void prv_render_ring(GContext *ctx, GRect bounds, DataLibrary *data_libra
 
 // Rendering function for dashboard card
 void card_render_dashboard(Layer *layer, GContext *ctx, uint16_t click_count,
-                           DataLibrary *data_library) {
+                           DataAPI *data_api) {
   // turn off anti-aliasing
   graphics_context_set_antialiased(ctx, false);
   // get bounds
   GRect bounds = layer_get_bounds(layer);
   bounds.origin = GPointZero;
   // render to graphics context
-  prv_render_ring(ctx, bounds, data_library);
+  prv_render_ring(ctx, bounds, data_api);
   // render battery percent text
-  prv_render_battery_percent(ctx, bounds, data_library);
+  prv_render_battery_percent(ctx, bounds, data_api);
   // render selected text
-  prv_render_selected_text(ctx, bounds, click_count, data_library);
+  prv_render_selected_text(ctx, bounds, click_count, data_api);
 }

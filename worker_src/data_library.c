@@ -2,15 +2,16 @@
 // @brief All code for reading, writing, and processing data
 //
 // Contains all code used to read and write data, as well as the
-// code used to process the data and store the results. This
-// file is used in both the main program and the background worker.
+// code used to process the data and store the results.
 //
 // @author Eric D. Phillips
 // @date January 2, 2015
 // @bugs No known bugs
 
+#define PEBBLE_BACKGROUND_WORKER
 #include "data_library.h"
-#include "../utility.h"
+#include "../src/utility.h"
+#undef PEBBLE_BACKGROUND_WORKER
 
 // Persistent Keys
 #define PERSIST_DATA_KEY 1000           //< The persistent storage key where the data write starts
@@ -31,32 +32,6 @@
 #define DISCHARGING_MIN_FRACTION 1 / 10 //< Minimum fraction of default run time to register
 
 
-// Alert colors and text for different counts and indices, accessed as [count][index]
-// smaller index is closer to empty time (smaller threshold)
-#ifndef PEBBLE_BACKGROUND_WORKER
-#ifdef PBL_COLOR
-static uint8_t prv_alert_colors[][4] = {
-  { GColorRedARGB8 },
-  { GColorRedARGB8, GColorYellowARGB8 },
-  { GColorRedARGB8, GColorOrangeARGB8, GColorYellowARGB8 },
-  { GColorRedARGB8, GColorOrangeARGB8, GColorChromeYellowARGB8, GColorYellowARGB8 }
-};
-#else
-static uint8_t prv_alert_colors[][4] = {
-  { GColorLightGrayARGB8 },
-  { GColorWhiteARGB8, GColorLightGrayARGB8 },
-  { GColorLightGrayARGB8, GColorWhiteARGB8, GColorLightGrayARGB8 },
-  { GColorWhiteARGB8, GColorLightGrayARGB8, GColorWhiteARGB8, GColorLightGrayARGB8 }
-};
-#endif
-#endif
-static char *prv_alert_text[][4] = {
-  { "Low Alert" },
-  { "Low Alert", "Med Alert" },
-  { "Low Alert", "Med Alert", "1st Alert" },
-  { "Low Alert", "Med Alert", "2nd Alert", "1st Alert" }
-};
-
 // AppTimer custom data struct
 typedef struct {
   AppTimer      *app_timer;       //< The AppTimer which will own this struct as data
@@ -71,7 +46,7 @@ typedef struct {
 } AlertData;
 
 // Structure containing compressed data in the form it will be saved in
-typedef struct SaveState {
+typedef struct {
   unsigned  epoch       : 30;   //< The epoch timestamp for when the percentage changed in seconds
   unsigned  percent     : 7;    //< The battery charge percent
   bool      charging    : 1;    //< The charging state of the battery
@@ -81,7 +56,7 @@ typedef struct SaveState {
 
 // Data structure used when saving to and reading from persistent storage
 // Includes a header with extra stats
-typedef struct SaveStateBlock {
+typedef struct {
   unsigned    data_version          : 8;            //< The data version format for this block
   signed      initial_charge_rate   : 24;           //< The charge rate after first point in block
   unsigned    padding               : 10;           //< Padding space so structure is 256 bytes
@@ -484,7 +459,6 @@ static void prv_persist_read_data_block(DataLibrary *data_library, uint16_t inde
   }
 }
 
-#ifdef PEBBLE_BACKGROUND_WORKER
 // Write newest DataNode into persistent storage
 static void prv_persist_write_data_node(DataLibrary *data_library, DataNode *data_node) {
   // get the location and size of the data
@@ -518,9 +492,7 @@ static void prv_persist_write_data_node(DataLibrary *data_library, DataNode *dat
     persist_write_int(PERSIST_DATA_KEY, ++persist_key);
   }
 }
-#endif
 
-#ifdef PEBBLE_BACKGROUND_WORKER
 // Process a SaveState structure by calculating stats and persisting
 static void prv_process_save_state(DataLibrary *data_library, SaveState save_state) {
   // calculate record run time
@@ -559,24 +531,20 @@ static void prv_process_save_state(DataLibrary *data_library, SaveState save_sta
   if (lst_node) {
     if (lst_node->charging || new_node->charging ||
       !lst_node->contiguous || !new_node->contiguous) {
-      prv_calculate_charge_cycles(data_library, 3);
+      prv_calculate_charge_cycles(data_library, CYCLE_LINKED_LIST_MIN_SIZE);
     }
   }
   // schedule wake-up low battery alert
   data_refresh_all_alerts(data_library);
   // send the data to the phone with data logging
-#ifdef PEBBLE_BACKGROUND_WORKER
   data_logging_log(data_library->data_logging_session, new_node, 1);
-#endif
 }
-#endif
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // First Time Launch
 //
 
-#ifdef PEBBLE_BACKGROUND_WORKER
 // data constants
 #define LEGACY_PERSIST_DATA 100
 #define LEGACY_PERSIST_DATA_LENGTH 24 // must be multiple of 4
@@ -642,25 +610,10 @@ static void prv_first_launch_prep(DataLibrary *data_library) {
   // write out the current battery state
   data_process_new_battery_state(data_library, battery_state_service_peek());
 }
-#endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // API Interface
 //
-
-#ifndef PEBBLE_BACKGROUND_WORKER
-// Get the color of an alert from a table of colors based on index
-//! Note: This function reads from persistent storage if a DataLibrary is NULL
-GColor data_get_alert_color(DataLibrary *data_library, uint8_t index) {
-  return (GColor){ .argb = prv_alert_colors[data_get_alert_count(data_library) - 1][index] };
-}
-#endif
-
-//! Get the text of an alert from a table of text based on index
-//! Note: This function reads from persistent storage if a DataLibrary is NULL
-char *data_get_alert_text(DataLibrary *data_library, uint8_t index) {
-  return prv_alert_text[data_get_alert_count(data_library) - 1][index];
-}
 
 // Get the alert level threshold in seconds, this is the time remaining when the alert goes off
 int32_t data_get_alert_threshold(DataLibrary *data_library, uint8_t index) {
@@ -732,11 +685,8 @@ void data_schedule_alert(DataLibrary *data_library, int32_t seconds) {
   // write out the new data
   persist_write_data(PERSIST_ALERTS_KEY, alert_data, sizeof(AlertData));
   // send message to the other part of the app to refresh data (background->foreground) and vv.
-#ifdef PEBBLE_BACKGROUND_WORKER
-  AppWorkerMessage msg_data = { .data0 = WorkerMessageForeground };
-#else
-  AppWorkerMessage msg_data = { .data0 = WorkerMessageBackground };
-#endif
+  // TODO: Implement this properly
+  AppWorkerMessage msg_data = { .data0 = 0 };
   app_worker_send_message(0, &msg_data);
 }
 
@@ -757,7 +707,8 @@ void data_unschedule_alert(DataLibrary *data_library, uint8_t index) {
   // write out the new data
   persist_write_data(PERSIST_ALERTS_KEY, alert_data, sizeof(AlertData));
   // send message to the other part of the app to refresh data (background->foreground) and vv.
-  AppWorkerMessage msg_data = { .data0 = WorkerMessageBackground };
+  // TODO: Deal with this
+  AppWorkerMessage msg_data = { .data0 = 0 };
   app_worker_send_message(0, &msg_data);
 }
 
@@ -896,69 +847,68 @@ uint16_t data_get_data_point_count_including_seconds(DataLibrary *data_library, 
 
 // Print the data to the console in CSV format
 void data_print_csv(DataLibrary *data_library) {
-//  DataNode cur_data_node = prv_get_current_data_node(data_library);
-//  // print header
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "=====================================================");
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Battery+ by Ycleptic Studios");
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "-----------------------------------------------------");
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "All timestamps are in UTC epoch format.");
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "'Charge Rate' represents the inverse of the rate of");
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "change of the battery percentage with respect to");
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "time. It is in seconds per percent.");
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Any value of -1 represents an invalid statistic.");
-//  // print stats
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "--------------------- Statistics --------------------");
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Current Time:\t%d", (int)time(NULL));
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Last Charged:\t%d",
-//    (int)(time(NULL) - data_get_run_time(data_library, 0)));
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Time Remaining:\t%d",
-//    (int)data_get_life_remaining(data_library));
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Maximum Life:\t%d",
-//    (int)data_get_max_life(data_library, 0));
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Run Time:\t%d",
-//    (int)data_get_run_time(data_library, 0));
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Record Life:\t%d",
-//    (int)data_get_record_run_time(data_library));
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Battery Percent:\t%d", (int)data_get_battery_percent
-//    (data_library));
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Percent per Day:\t%d",
-//    (int)data_get_percent_per_day(data_library));
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Rate:\t%d", (int)cur_data_node.charge_rate);
-//  // print interpreted charge cycles
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "------------------- Charge Cycles -------------------");
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Start,\tRun Start,\tRun Stop,\tAvg Charge "
-//    "Rate,");
-//  uint16_t cycle_count = 0;
-//  ChargeCycleNode *cur_cycle_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index
-//    ((Node*)data_library->cycle_head_node, cycle_count);
-//  while (cur_cycle_node) {
-//    cycle_count++;
-//    app_log(APP_LOG_LEVEL_INFO, "", 0, "%d,\t%d,\t%d,\t%d,",
-//      (int)cur_cycle_node->charge_epoch, (int)cur_cycle_node->discharge_epoch,
-//      (int)cur_cycle_node->end_epoch, (int)cur_cycle_node->avg_charge_rate);
-//    cur_cycle_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index
-//      ((Node*)data_library->cycle_head_node, cycle_count);
-//  }
-//
-//  // print raw data points
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "---------------------- Raw Data ---------------------");
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Epoch,\t\tPerc,\tChar,\tPlug,\tContig,\tCharge Rate,");
-//  uint16_t data_count = 0;
-//  DataNode *cur_node = prv_list_get_data_node(data_library, data_count);
-//  while (cur_node) {
-//    data_count++;
-//    app_log(APP_LOG_LEVEL_INFO, "", 0, "%d,\t%d,\t%d,\t%d,\t%d,\t%d,",
-//      (int)cur_node->epoch, (int)cur_node->percent, (int)cur_node->charging, (int)cur_node->plugged,
-//      (int)cur_node->contiguous, (int)cur_node->charge_rate);
-//    cur_node = prv_list_get_data_node(data_library, data_count);
-//  }
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "-----------------------------------------------------");
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Cycle Count: %d", cycle_count);
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "Data Point Count: %d", data_count);
-//  app_log(APP_LOG_LEVEL_INFO, "", 0, "=====================================================");
+  DataNode cur_data_node = prv_get_current_data_node(data_library);
+  // print header
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "=====================================================");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Battery+ by Ycleptic Studios");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "-----------------------------------------------------");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "All timestamps are in UTC epoch format.");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "'Charge Rate' represents the inverse of the rate of");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "change of the battery percentage with respect to");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "time. It is in seconds per percent.");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Any value of -1 represents an invalid statistic.");
+  // print stats
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "--------------------- Statistics --------------------");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Current Time:\t%d", (int)time(NULL));
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Last Charged:\t%d",
+    (int)(time(NULL) - data_get_run_time(data_library, 0)));
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Time Remaining:\t%d",
+    (int)data_get_life_remaining(data_library));
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Maximum Life:\t%d",
+    (int)data_get_max_life(data_library, 0));
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Run Time:\t%d",
+    (int)data_get_run_time(data_library, 0));
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Record Life:\t%d",
+    (int)data_get_record_run_time(data_library));
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Battery Percent:\t%d", (int)data_get_battery_percent
+    (data_library));
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Percent per Day:\t%d",
+    (int)data_get_percent_per_day(data_library));
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Rate:\t%d", (int)cur_data_node.charge_rate);
+  // print interpreted charge cycles
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "------------------- Charge Cycles -------------------");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Start,\tRun Start,\tRun Stop,\tAvg Charge "
+    "Rate,");
+  uint16_t cycle_count = 0;
+  ChargeCycleNode *cur_cycle_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index
+    ((Node*)data_library->cycle_head_node, cycle_count);
+  while (cur_cycle_node) {
+    cycle_count++;
+    app_log(APP_LOG_LEVEL_INFO, "", 0, "%d,\t%d,\t%d,\t%d,",
+      (int)cur_cycle_node->charge_epoch, (int)cur_cycle_node->discharge_epoch,
+      (int)cur_cycle_node->end_epoch, (int)cur_cycle_node->avg_charge_rate);
+    cur_cycle_node = (ChargeCycleNode*)prv_linked_list_get_node_by_index
+      ((Node*)data_library->cycle_head_node, cycle_count);
+  }
+
+  // print raw data points
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "---------------------- Raw Data ---------------------");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Epoch,\t\tPerc,\tChar,\tPlug,\tContig,\tCharge Rate,");
+  uint16_t data_count = 0;
+  DataNode *cur_node = prv_list_get_data_node(data_library, data_count);
+  while (cur_node) {
+    data_count++;
+    app_log(APP_LOG_LEVEL_INFO, "", 0, "%d,\t%d,\t%d,\t%d,\t%d,\t%d,",
+      (int)cur_node->epoch, (int)cur_node->percent, (int)cur_node->charging, (int)cur_node->plugged,
+      (int)cur_node->contiguous, (int)cur_node->charge_rate);
+    cur_node = prv_list_get_data_node(data_library, data_count);
+  }
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "-----------------------------------------------------");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Charge Cycle Count: %d", cycle_count);
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Data Point Count: %d", data_count);
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "=====================================================");
 }
 
-#ifdef PEBBLE_BACKGROUND_WORKER
 // Process a BatteryChargeState structure and add it to the data
 void data_process_new_battery_state(DataLibrary *data_library,
                                     BatteryChargeState battery_state) {
@@ -980,18 +930,16 @@ void data_process_new_battery_state(DataLibrary *data_library,
   // set contiguous to true for next data point
   data_library->data_is_contiguous = true;
   // send message to the other part of the app to refresh data (background->foreground) and vv.
-  AppWorkerMessage msg_data = { .data0 = WorkerMessageForeground };
+  // TODO: Properly implement this function
+  AppWorkerMessage msg_data = { .data0 = 0 };
   app_worker_send_message(0, &msg_data);
 }
-#endif
 
 // Destroy data and reload from persistent storage
 void data_reload(DataLibrary *data_library) {
   // read data from persistent storage
   if (!persist_exists(PERSIST_DATA_KEY)) {
-#ifdef PEBBLE_BACKGROUND_WORKER
     prv_first_launch_prep(data_library);
-#endif
   } else {
     prv_persist_read_data_block(data_library, 0);
     prv_calculate_charge_cycles(data_library, CYCLE_LINKED_LIST_MIN_SIZE);
@@ -1004,10 +952,8 @@ DataLibrary *data_initialize(void) {
   // create new DataLibrary
   DataLibrary *data_library = MALLOC(sizeof(DataLibrary));
   memset(data_library, 0, sizeof(DataLibrary));
-#ifdef PEBBLE_BACKGROUND_WORKER
   data_library->data_logging_session = data_logging_create(DATA_LOGGING_TAG,
     DATA_LOGGING_BYTE_ARRAY, sizeof(DataNode), true);
-#endif
   // read data from persistent storage
   data_reload(data_library);
   return data_library;

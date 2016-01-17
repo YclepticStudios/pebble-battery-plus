@@ -8,7 +8,7 @@
 // @bugs No known bugs
 
 #include <pebble.h>
-#include "data/data_library.h"
+#include "data/data_api.h"
 #include "drawing/drawing.h"
 #include "menu.h"
 #include "drawing/windows/alert/popup_window.h"
@@ -21,7 +21,7 @@
 // Main data structure
 static struct {
   Window        *window;          //< The base window for the application
-  DataLibrary   *data_library;    //< The main data pointer for all data functions
+  DataAPI   *data_api;    //< The main data pointer for all data functions
 } main_data;
 
 
@@ -57,7 +57,7 @@ static void select_long_click_handler(ClickRecognizerRef recognizer, void *conte
   drawing_free_caches();
 #endif
   // show the action menu
-  menu_show(main_data.data_library);
+  menu_show(main_data.data_api);
   drawing_set_action_menu_dot(false);
 }
 
@@ -93,10 +93,9 @@ static void prv_tick_timer_service_handler(tm *tick_time, TimeUnits units_change
 
 // Worker message callback
 static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
-  if (data->data0 == WorkerMessageForeground) {
-    // update the data
-    data_reload(main_data.data_library);
-  }
+  // TODO: Deal with this function
+  // update the data
+  data_api_reload(main_data.data_api);
   // refresh the screen
   drawing_refresh();
 }
@@ -122,7 +121,7 @@ static void prv_initialize_popup(void) {
 // Initialize the program
 static void prv_initialize_main(void) {
   // load data
-  main_data.data_library = data_initialize();
+  main_data.data_api = data_api_initialize();
   // start background worker
   app_worker_launch();
   // initialize window
@@ -132,7 +131,7 @@ static void prv_initialize_main(void) {
   window_set_click_config_provider(main_data.window, prv_click_config_handler);
   window_stack_push(main_data.window, true);
   // initialize drawing layers
-  drawing_initialize(window_root, main_data.data_library);
+  drawing_initialize(window_root, main_data.data_api);
   // subscribe to services
   app_worker_message_subscribe(prv_worker_message_handler);
   tick_timer_service_subscribe(MINUTE_UNIT, prv_tick_timer_service_handler);
@@ -147,7 +146,7 @@ static void prv_terminate_main(void) {
   drawing_terminate();
   window_destroy(main_data.window);
   // unload data
-  data_terminate(main_data.data_library);
+  data_api_terminate(main_data.data_api);
 }
 
 // Entry point

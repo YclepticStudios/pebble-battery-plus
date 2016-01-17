@@ -2,54 +2,29 @@
 //! @brief All code for reading, writing, and processing data
 //!
 //! Contains all code used to read and write data, as well as the
-//! code used to process the data and store the results. This
-//! file is used in both the main program and the background worker.
+//! code used to process the data and store the results.
 //!
 //! @author Eric D. Phillips
 //! @date January 2, 2015
 //! @bugs No known bugs
 
-//! This file is included in both the main program and the worker, so it needs different includes
 #pragma once
-#ifdef PEBBLE_BACKGROUND_WORKER
 #include <pebble_worker.h>
-#else
-#include <pebble.h>
-#endif
 
 //! Constants
 #define DATA_MAX_ALERT_COUNT 4
 #define WAKE_UP_ALERT_INDEX_KEY 997
 
-//! AppMessage modes
-typedef enum { WorkerMessageForeground, WorkerMessageBackground } WorkerMessageType;
-
 //! Main data structure
 typedef struct DataLibrary DataLibrary;
 
 //! Alert triggered callback type
-typedef void(* BatteryAlertCallback)(uint8_t);
+typedef void(*BatteryAlertCallback)(uint8_t);
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // API Interface
 //
-
-#ifndef PEBBLE_BACKGROUND_WORKER
-//! Get the color of an alert from a table of colors based on index
-//! Note: This function reads from persistent storage if a DataLibrary is NULL
-//! @param data_library Optional pointer to DataLibrary to prevent persistent storage read
-//! @param index The index of the alert
-//! @return A GColor which represents that level of alert
-GColor data_get_alert_color(DataLibrary *data_library, uint8_t index);
-#endif
-
-//! Get the text of an alert from a table of text based on index
-//! Note: This function reads from persistent storage if a DataLibrary is NULL
-//! @param data_library Optional pointer to DataLibrary to prevent persistent storage read
-//! @param index The index of the alert
-//! @return A pointer to text which represents that level of alert
-char *data_get_alert_text(DataLibrary *data_library, uint8_t index);
 
 //! Get the alert level threshold in seconds, this is the time remaining when the alert goes off
 //! @param data_library A pointer to an existing DataLibrary
@@ -144,13 +119,11 @@ uint16_t data_get_data_point_count_including_seconds(DataLibrary *data_library, 
 //! @param data_library A pointer to an existing DataLibrary
 void data_print_csv(DataLibrary *data_library);
 
-#ifdef PEBBLE_BACKGROUND_WORKER
 //! Process a BatteryChargeState structure and add it to the data
 //! @param data_library A pointer to an existing DataLibrary
 //! @param battery_state A BatteryChargeState containing the state of the battery
 void data_process_new_battery_state(DataLibrary *data_library, BatteryChargeState
                                     battery_state);
-#endif
 
 //! Destroy data and reload from persistent storage
 //! @param data_library A pointer to an existing DataLibrary
