@@ -8,8 +8,8 @@
 // @date January 2, 2015
 // @bugs No known bugs
 
-#define PEBBLE_BACKGROUND_WORKER
 #include "data_library.h"
+#define PEBBLE_BACKGROUND_WORKER
 #include "../src/utility.h"
 #undef PEBBLE_BACKGROUND_WORKER
 

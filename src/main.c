@@ -149,8 +149,35 @@ static void prv_terminate_main(void) {
   data_api_terminate(main_data.data_api);
 }
 
+static void tst_timer(void *data) {
+  printf("Timer Returned");
+}
+
+// Worker message callback
+static void tst_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
+  int *ptr = (int*)(*(int*)data);
+  printf("Pointer: %d", (int)ptr);
+  printf("Value: %d", ptr[0]);
+  printf("Value: %d", ptr[1]);
+  printf("Value: %d", ptr[2]);
+  printf("Value: %d", ptr[3]);
+  printf("New Pointer: %d", (int)malloc(4));
+}
+
 // Entry point
 int main(void) {
+  app_timer_register(3000, tst_timer, NULL);
+  app_worker_launch();
+  app_worker_message_subscribe(tst_worker_message_handler);
+
+//  time_t cur_time = time(NULL);
+//  while (time(NULL) < cur_time + 10) {
+//    printf("Foreground Active");
+//    psleep(100);
+//  }
+  window_stack_push(window_create(), true);
+  app_event_loop();
+  return 1;
   // check launch reason
   if (launch_reason() == APP_LAUNCH_WORKER) {
   //if (true) { // TODO: Fix this

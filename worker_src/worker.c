@@ -10,9 +10,9 @@
 // @date November 22, 2015
 // @bugs No known bugs
 
-#define PEBBLE_BACKGROUND_WORKER
 #include <pebble_worker.h>
 #include "data_library.h"
+#define PEBBLE_BACKGROUND_WORKER
 #include "../src/utility.c"
 #undef PEBBLE_BACKGROUND_WORKER
 
@@ -39,6 +39,11 @@ static void prv_battery_state_change_handler(BatteryChargeState battery_state) {
   data_process_new_battery_state(data_library, battery_state);
 }
 
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Loading and Unloading
+//
+
 // Initialize
 static void prv_initialize(void) {
   data_library = data_initialize();
@@ -58,6 +63,21 @@ static void prv_terminate(void) {
 
 // Main entry point
 int main(void) {
+  int *ptr = malloc(16);
+  ptr[0] = 12;
+  ptr[1] = 34;
+  ptr[2] = 56;
+  ptr[3] = 78;
+  AppWorkerMessage message;
+  int *msg = (int*)&message;
+  (*msg) = (int)ptr;
+  app_worker_send_message(0, &message);
+  psleep(1000);
+//  time_t cur_time = time(NULL);
+//  while (time(NULL) < cur_time + 10) {
+//    printf("Background Active");
+//    psleep(100);
+//  }
   prv_initialize();
   worker_event_loop();
   prv_terminate();
