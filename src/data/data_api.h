@@ -115,7 +115,7 @@ uint8_t data_api_get_battery_percent(DataAPI *data_api);
 //! @param epoch A pointer to an int32_t to which to set the epoch
 //! @param percent A pointer to a uint8_t to which to set the battery percent
 void data_api_get_data_point(DataAPI *data_api, uint16_t index, int32_t *epoch,
-                         uint8_t *percent);
+                             uint8_t *percent);
 
 //! Get the number of charge cycles which include the last x number of seconds (0 gets all points)
 //! @param data_api A pointer to an existing DataAPI
@@ -132,14 +132,6 @@ uint16_t data_api_get_data_point_count_including_seconds(DataAPI *data_api, int3
 //! Print the data to the console in CSV format
 //! @param data_api A pointer to an existing DataAPI
 void data_api_print_csv(DataAPI *data_api);
-
-#ifdef PEBBLE_BACKGROUND_WORKER
-//! Process a BatteryChargeState structure and add it to the data
-//! @param data_api A pointer to an existing DataAPI
-//! @param battery_state A BatteryChargeState containing the state of the battery
-void data_api_process_new_battery_state(DataAPI *data_api, BatteryChargeState
-                                    battery_state);
-#endif
 
 //! Destroy data and reload from persistent storage
 //! @param data_api A pointer to an existing DataAPI

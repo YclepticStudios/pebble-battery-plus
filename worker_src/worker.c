@@ -63,21 +63,6 @@ static void prv_terminate(void) {
 
 // Main entry point
 int main(void) {
-  int *ptr = malloc(16);
-  ptr[0] = 12;
-  ptr[1] = 34;
-  ptr[2] = 56;
-  ptr[3] = 78;
-  AppWorkerMessage message;
-  int *msg = (int*)&message;
-  (*msg) = (int)ptr;
-  app_worker_send_message(0, &message);
-  psleep(1000);
-//  time_t cur_time = time(NULL);
-//  while (time(NULL) < cur_time + 10) {
-//    printf("Background Active");
-//    psleep(100);
-//  }
   prv_initialize();
   worker_event_loop();
   prv_terminate();
