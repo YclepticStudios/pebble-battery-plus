@@ -85,6 +85,7 @@ static void prv_render_line(GContext *ctx, GRect bounds, int32_t graph_x_range,
   graphics_context_set_stroke_color(ctx, GColorBlack);
   gpath_draw_outline_open(ctx, path);
   gpath_destroy(path);
+  free(data_points);
 }
 
 // Render axis
