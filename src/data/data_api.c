@@ -159,11 +159,11 @@ uint8_t data_api_get_battery_percent(DataAPI *data_api) {
   int32_t percent = data_api->data_pt_percents[0] +
     (time(NULL) - data_api->data_pt_epochs[0]) / data_api->charge_rate;
   // restrict it to a valid range
-  // TODO: Determine valid range by actual percent, not last loaded data point
-  if (percent > data_api->data_pt_percents[0]) {
-    percent = data_api->data_pt_percents[0];
-  } else if (percent <= data_api->data_pt_percents[0] - 10) {
-    percent = data_api->data_pt_percents[0] - 9;
+  BatteryChargeState battery_state = battery_state_service_peek();
+  if (percent > battery_state.charge_percent) {
+    percent = battery_state.charge_percent;
+  } else if (percent <= battery_state.charge_percent - 10) {
+    percent = battery_state.charge_percent - 9;
   }
   if (percent < 1) {
     percent = 1;
@@ -192,7 +192,7 @@ bool data_api_get_data_point(DataAPI *data_api, uint16_t index, int32_t *epoch,
 
 // Get the number of charge cycles currently loaded into memory
 uint16_t data_api_get_charge_cycle_count(DataAPI *data_api) {
-  return data_api->cycle_count;
+  return data_api->cycle_count + 1;
 }
 
 // Print the data to the console in CSV format
@@ -202,7 +202,7 @@ void data_api_print_csv(DataAPI *data_api) {
 
 // Destroy data and reload from persistent storage
 void data_api_reload(DataAPI *data_api) {
-  // TODO: Implement this function
+  prv_load_data_from_background(data_api, 0);
 };
 
 // Initialize the data

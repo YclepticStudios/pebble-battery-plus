@@ -93,9 +93,14 @@ static void prv_tick_timer_service_handler(tm *tick_time, TimeUnits units_change
 
 // Worker message callback
 static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
-  // TODO: Deal with this function
-  // update the data
-  data_api_reload(main_data.data_api);
+  // check what is being sent
+  switch (type) {
+    case WorkerMessageReloadData:
+      data_api_reload(main_data.data_api);
+      break;
+    default:
+      return;
+  }
   // refresh the screen
   drawing_refresh();
 }

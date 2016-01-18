@@ -679,10 +679,9 @@ void data_schedule_alert(DataLibrary *data_library, int32_t seconds) {
   alert_data->scheduled_count++;
   // write out the new data
   persist_write_data(PERSIST_ALERTS_KEY, alert_data, sizeof(AlertData));
-  // send message to the other part of the app to refresh data (background->foreground) and vv.
-  // TODO: Implement this properly
-//  AppWorkerMessage msg_data = { .data0 = 0 };
-//  app_worker_send_message(0, &msg_data);
+  // send message to the foreground telling it to refresh
+  AppWorkerMessage msg_data = { .data0 = 0 };
+  app_worker_send_message(WorkerMessageReloadData, &msg_data);
 }
 
 // Destroy an existing alert at a certain index
@@ -701,10 +700,9 @@ void data_unschedule_alert(DataLibrary *data_library, uint8_t index) {
   }
   // write out the new data
   persist_write_data(PERSIST_ALERTS_KEY, alert_data, sizeof(AlertData));
-  // send message to the other part of the app to refresh data (background->foreground) and vv.
-  // TODO: Deal with this
-//  AppWorkerMessage msg_data = { .data0 = 0 };
-//  app_worker_send_message(0, &msg_data);
+  // send message to the foreground telling it to refresh
+  AppWorkerMessage msg_data = { .data0 = 0 };
+  app_worker_send_message(WorkerMessageReloadData, &msg_data);
 }
 
 // Register callback for when an alert goes off
@@ -824,6 +822,9 @@ uint16_t data_get_charge_cycle_count_including_seconds(DataLibrary *data_library
   if (data_library->cycle_head_node && data_library->cycle_head_node->end_epoch) {
     index++;
   }
+  if (!index) {
+    index = 1;
+  }
   return index;
 }
 
@@ -924,10 +925,9 @@ void data_process_new_battery_state(DataLibrary *data_library,
   prv_process_save_state(data_library, save_state);
   // set contiguous to true for next data point
   data_library->data_is_contiguous = true;
-  // send message to the other part of the app to refresh data (background->foreground) and vv.
-  // TODO: Properly implement this function
-//  AppWorkerMessage msg_data = { .data0 = 0 };
-//  app_worker_send_message(0, &msg_data);
+  // send message to the foreground telling it to refresh
+  AppWorkerMessage msg_data = { .data0 = 0 };
+  app_worker_send_message(WorkerMessageReloadData, &msg_data);
 }
 
 // Write the data out in chunks to the foreground app
@@ -994,18 +994,6 @@ void data_write_to_foreground(DataLibrary *data_library, uint8_t data_pt_start_i
   }
 }
 
-// Destroy data and reload from persistent storage
-void data_reload(DataLibrary *data_library) {
-  // read data from persistent storage
-  if (!persist_exists(PERSIST_DATA_KEY)) {
-    prv_first_launch_prep(data_library);
-  } else {
-    prv_persist_read_data_block(data_library, 0);
-    prv_calculate_charge_cycles(data_library, CYCLE_LINKED_LIST_MIN_SIZE);
-    data_refresh_all_alerts(data_library);
-  }
-}
-
 // Initialize the data
 DataLibrary *data_initialize(void) {
   // create new DataLibrary
@@ -1014,7 +1002,13 @@ DataLibrary *data_initialize(void) {
   data_library->data_logging_session = data_logging_create(DATA_LOGGING_TAG,
     DATA_LOGGING_BYTE_ARRAY, sizeof(DataNode), true);
   // read data from persistent storage
-  data_reload(data_library);
+  if (!persist_exists(PERSIST_DATA_KEY)) {
+    prv_first_launch_prep(data_library);
+  } else {
+    prv_persist_read_data_block(data_library, 0);
+    prv_calculate_charge_cycles(data_library, CYCLE_LINKED_LIST_MIN_SIZE);
+    data_refresh_all_alerts(data_library);
+  }
   return data_library;
 }
 

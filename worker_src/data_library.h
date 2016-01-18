@@ -126,10 +126,6 @@ void data_process_new_battery_state(DataLibrary *data_library, BatteryChargeStat
 //! @param data_pt_start_index The index of the data point to start with in the raw data pt section
 void data_write_to_foreground(DataLibrary *data_library, uint8_t data_pt_start_index);
 
-//! Destroy data and reload from persistent storage
-//! @param data_library A pointer to an existing DataLibrary
-void data_reload(DataLibrary *data_library);
-
 //! Initialize the data
 //! @return A pointer to a newly initialized DataLibrary structure
 DataLibrary *data_initialize(void);
