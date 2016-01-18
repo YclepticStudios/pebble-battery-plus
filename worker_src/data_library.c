@@ -10,15 +10,10 @@
 
 #include "data_library.h"
 #define PEBBLE_BACKGROUND_WORKER
+#include "../src/data/data_shared.h"
 #include "../src/utility.h"
 #undef PEBBLE_BACKGROUND_WORKER
 
-// Persistent Keys
-#define PERSIST_DATA_KEY 1000           //< The persistent storage key where the data write starts
-#define PERSIST_RECORD_LIFE_KEY 999     //< Persistent storage key where the record life is stored
-#define PERSIST_ALERTS_KEY 998          //< Persistent storage key for number of alerts scheduled
-// #define WAKE_UP_ALERT_INDEX_KEY 997  //< Defined in data_library.h
-#define DATA_LOGGING_TAG 5155346        //< Tag used to identify data once on phone
 // Constants
 #define DATA_VERSION 0                  //< The current persistent storage format version
 #define LOW_THRESH_DEFAULT 4 * SEC_IN_HR  //< Default threshold for low level
@@ -41,7 +36,7 @@ typedef struct {
 
 // Battery alert data structure
 typedef struct {
-  int32_t   thresholds[DATA_MAX_ALERT_COUNT];   //< Number of seconds before empty for alert
+  int32_t   thresholds[DATA_ALERT_MAX_COUNT];   //< Number of seconds before empty for alert
   uint8_t   scheduled_count;                    //< The total number of currently scheduled alerts
 } AlertData;
 
@@ -98,7 +93,7 @@ typedef struct DataLibrary {
   uint16_t                cycle_node_count;         //< Number of nodes in charge cycle linked list
   ChargeCycleNode         *cycle_head_node;         //< Charge cycle linked list head node
   AlertData               alert_data;               //< Data for battery low alerts
-  AppTimerData            app_timers[DATA_MAX_ALERT_COUNT];  //< AppTimer data for alerts
+  AppTimerData            app_timers[DATA_ALERT_MAX_COUNT];  //< AppTimer data for alerts
   BatteryAlertCallback    alert_callback;           //< The function to call when an alert goes off
   DataLoggingSessionRef   data_logging_session;     //< Data logging session to send data to phone
 } DataLibrary;
@@ -673,12 +668,12 @@ void data_schedule_alert(DataLibrary *data_library, int32_t seconds) {
     if (seconds < alert_data->thresholds[index]) { break; }
   }
   // if full delete last alert
-  if (alert_data->scheduled_count >= DATA_MAX_ALERT_COUNT) {
-    data_unschedule_alert(data_library, DATA_MAX_ALERT_COUNT - 1);
+  if (alert_data->scheduled_count >= DATA_ALERT_MAX_COUNT) {
+    data_unschedule_alert(data_library, DATA_ALERT_MAX_COUNT - 1);
   }
   // move alerts to make room
   memmove(&alert_data->thresholds[index + 1], &alert_data->thresholds[index],
-    (DATA_MAX_ALERT_COUNT - index - 1) * sizeof(alert_data->thresholds[0]));
+    (DATA_ALERT_MAX_COUNT - index - 1) * sizeof(alert_data->thresholds[0]));
   // insert new alert
   alert_data->thresholds[index] = seconds;
   alert_data->scheduled_count++;
@@ -686,8 +681,8 @@ void data_schedule_alert(DataLibrary *data_library, int32_t seconds) {
   persist_write_data(PERSIST_ALERTS_KEY, alert_data, sizeof(AlertData));
   // send message to the other part of the app to refresh data (background->foreground) and vv.
   // TODO: Implement this properly
-  AppWorkerMessage msg_data = { .data0 = 0 };
-  app_worker_send_message(0, &msg_data);
+//  AppWorkerMessage msg_data = { .data0 = 0 };
+//  app_worker_send_message(0, &msg_data);
 }
 
 // Destroy an existing alert at a certain index
@@ -697,7 +692,7 @@ void data_unschedule_alert(DataLibrary *data_library, uint8_t index) {
   persist_read_data(PERSIST_ALERTS_KEY, alert_data, persist_get_size(PERSIST_ALERTS_KEY));
   // move memory back over that position
   memmove(&alert_data->thresholds[index], &alert_data->thresholds[index + 1],
-    (DATA_MAX_ALERT_COUNT - index - 1) * sizeof(alert_data->thresholds[0]));
+    (DATA_ALERT_MAX_COUNT - index - 1) * sizeof(alert_data->thresholds[0]));
   alert_data->scheduled_count--;
   // cancel timer
   if (data_library->app_timers[index].app_timer) {
@@ -708,8 +703,8 @@ void data_unschedule_alert(DataLibrary *data_library, uint8_t index) {
   persist_write_data(PERSIST_ALERTS_KEY, alert_data, sizeof(AlertData));
   // send message to the other part of the app to refresh data (background->foreground) and vv.
   // TODO: Deal with this
-  AppWorkerMessage msg_data = { .data0 = 0 };
-  app_worker_send_message(0, &msg_data);
+//  AppWorkerMessage msg_data = { .data0 = 0 };
+//  app_worker_send_message(0, &msg_data);
 }
 
 // Register callback for when an alert goes off
@@ -931,8 +926,72 @@ void data_process_new_battery_state(DataLibrary *data_library,
   data_library->data_is_contiguous = true;
   // send message to the other part of the app to refresh data (background->foreground) and vv.
   // TODO: Properly implement this function
-  AppWorkerMessage msg_data = { .data0 = 0 };
-  app_worker_send_message(0, &msg_data);
+//  AppWorkerMessage msg_data = { .data0 = 0 };
+//  app_worker_send_message(0, &msg_data);
+}
+
+// Write the data out in chunks to the foreground app
+void data_write_to_foreground(DataLibrary *data_library, uint8_t data_pt_start_index) {
+  // get some stats
+  DataNode cur_node = prv_get_current_data_node(data_library);
+  int32_t lst_charge_time = data_get_run_time(data_library, 0);
+  if (lst_charge_time > 0) {
+    lst_charge_time = time(NULL) - lst_charge_time;
+  }
+  // create data blob to write
+  DataAPI data_api = (DataAPI) {
+    .charge_rate = cur_node.charge_rate,
+    .charge_by_time = data_get_charge_by_time(data_library),
+    .last_charged_time = lst_charge_time,
+    .record_run_time = data_get_record_run_time(data_library),
+    .data_pt_start_index = data_pt_start_index,
+    .alert_count = data_get_alert_count(data_library),
+    .cycle_count = data_get_charge_cycle_count_including_seconds(data_library, 0) - 1,
+    .data_pt_count = 0
+  };
+  if (data_api.cycle_count > CHARGE_CYCLE_MAX_COUNT) {
+    data_api.cycle_count = CHARGE_CYCLE_MAX_COUNT;
+  }
+  for (uint8_t ii = 0; ii < data_api.alert_count; ii++) {
+    data_api.alert_threshold[ii] = data_get_alert_threshold(data_library, ii);
+  }
+  for (uint8_t ii = 0; ii < data_api.cycle_count; ii++) {
+    data_api.run_times[ii] = data_get_run_time(data_library, ii + 1);
+    data_api.max_lives[ii] = data_get_max_life(data_library, ii + 1);
+  }
+  DataNode *tmp_node;
+  for (uint8_t ii = 0; ii < DATA_POINT_MAX_COUNT; ii++) {
+    tmp_node = prv_list_get_data_node(data_library, data_api.data_pt_start_index + ii);
+    if (!tmp_node) { break; }
+    data_api.data_pt_epochs[ii] = tmp_node->epoch;
+    data_api.data_pt_percents[ii] = tmp_node->percent;
+    data_api.data_pt_count++;
+  }
+  // delete any old data that may be loaded
+  persist_delete(TEMP_LOCK_KEY);
+  persist_delete(TEMP_COMMUNICATION_KEY);
+  // loop and wait
+  // TODO: Prevent this from going into an endless loop somehow
+  uint16_t bytes_written = 0, bytes_to_write = 0;
+  while (1) {
+    // check if data key exists
+    if (!persist_exists(TEMP_LOCK_KEY)) {
+      // write out data
+      bytes_to_write = sizeof(DataAPI) - bytes_written;
+      if (bytes_to_write > PERSIST_DATA_MAX_LENGTH) {
+        bytes_to_write = PERSIST_DATA_MAX_LENGTH;
+      }
+      bytes_written += persist_write_data(TEMP_COMMUNICATION_KEY,
+        ((char*)&data_api + bytes_written), bytes_to_write);
+      persist_write_bool(TEMP_LOCK_KEY, false);
+      // check if done
+      if (bytes_written >= sizeof(DataAPI)) {
+        break;
+      }
+    }
+    // wait
+    psleep(10);
+  }
 }
 
 // Destroy data and reload from persistent storage

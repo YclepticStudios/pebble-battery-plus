@@ -9,13 +9,68 @@
 // @date January 16, 2015
 // @bugs No known bugs
 
+#include <pebble.h>
 #include "data_api.h"
+#include "data_shared.h"
 #include "../utility.h"
 
-//! Main data structure
-typedef struct DataAPI {
+// Alert colors and text for different counts and indices, accessed as [count][index]
+// smaller index is closer to empty time (smaller threshold)
+#ifdef PBL_COLOR
+static uint8_t prv_alert_colors[][4] = {
+  { GColorRedARGB8 },
+  { GColorRedARGB8, GColorYellowARGB8 },
+  { GColorRedARGB8, GColorOrangeARGB8, GColorYellowARGB8 },
+  { GColorRedARGB8, GColorOrangeARGB8, GColorChromeYellowARGB8, GColorYellowARGB8 }
+};
+#else
+static uint8_t prv_alert_colors[][4] = {
+  { GColorLightGrayARGB8 },
+  { GColorWhiteARGB8, GColorLightGrayARGB8 },
+  { GColorLightGrayARGB8, GColorWhiteARGB8, GColorLightGrayARGB8 },
+  { GColorWhiteARGB8, GColorLightGrayARGB8, GColorWhiteARGB8, GColorLightGrayARGB8 }
+};
+#endif
+static char *prv_alert_text[][4] = {
+  { "Low Alert" },
+  { "Low Alert", "Med Alert" },
+  { "Low Alert", "Med Alert", "1st Alert" },
+  { "Low Alert", "Med Alert", "2nd Alert", "1st Alert" }
+};
 
-} DataAPI;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Private Functions
+//
+
+// Sit and wait until data is loaded from the background
+static void prv_load_data_from_background(DataAPI *data_api, uint16_t data_pt_start_index) {
+  // TODO: Add some way to prevent it from getting stuck in this endless loop
+  // delete any old data that may be loaded
+  persist_delete(TEMP_LOCK_KEY);
+  persist_delete(TEMP_COMMUNICATION_KEY);
+  // send message to background to start writing data
+  AppWorkerMessage message = {.data0 = data_pt_start_index};
+  app_worker_send_message(WorkerMessageSendData, &message);
+  // loop and wait
+  uint16_t bytes_read = 0;
+  while (1) {
+    // check if data key exists
+    if (persist_exists(TEMP_LOCK_KEY)) {
+      // read in data
+      bytes_read += persist_read_data(TEMP_COMMUNICATION_KEY, ((char*)data_api + bytes_read),
+        persist_get_size(TEMP_COMMUNICATION_KEY));
+      persist_delete(TEMP_COMMUNICATION_KEY);
+      persist_delete(TEMP_LOCK_KEY);
+      // check if done
+      if (bytes_read >= sizeof(DataAPI)) {
+        break;
+      }
+    }
+    // wait
+    psleep(10);
+  }
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -24,148 +79,143 @@ typedef struct DataAPI {
 
 // Get the color of an alert from a table of colors based on index
 GColor data_api_get_alert_color(DataAPI *data_api, uint8_t index) {
-  return GColorBlack;
+  return (GColor){ .argb = prv_alert_colors[data_api_get_alert_count(data_api) - 1][index] };
 }
 
 // Get the text of an alert from a table of text based on index
 char *data_api_get_alert_text(DataAPI *data_api, uint8_t index) {
-  return "";
+  return prv_alert_text[data_api_get_alert_count(data_api) - 1][index];
 }
 
 // Get the alert level threshold in seconds, this is the time remaining when the alert goes off
 int32_t data_api_get_alert_threshold(DataAPI *data_api, uint8_t index) {
-  return 0;
+  return data_api->alert_threshold[index];
 }
 
 // Get the number of scheduled alerts at the current time
 uint8_t data_api_get_alert_count(DataAPI *data_api) {
-  return 0;
-}
-
-// Refresh all alerts and schedule timers which will do the actual waking up
-void data_api_refresh_all_alerts(DataAPI *data_api) {
-
+  return data_api->alert_count;
 }
 
 // Create a new alert at a certain threshold
 void data_api_schedule_alert(DataAPI *data_api, int32_t seconds) {
-
+  // TODO: Implement this function
 }
 
 // Destroy an existing alert at a certain index
 void data_api_unschedule_alert(DataAPI *data_api, uint8_t index) {
-
+  // TODO: Implement this function
 }
 
 // Register callback for when an alert goes off
 // TODO: Add this to the foreground app to get alerts when awake
 void data_api_register_alert_callback(DataAPI *data_api, BatteryAPIAlertCallback callback) {
-
+  // TODO: Implement this function
 }
 
 // Get the time the watch needs to be charged by
 int32_t data_api_get_charge_by_time(DataAPI *data_api) {
-  return 0;
+  return data_api->charge_by_time;
 }
 
-//! Get the estimated time remaining in seconds
-//! @param data_api A pointer to an existing DataAPI
-//! @return The number of seconds of battery life remaining
+// Get the estimated time remaining in seconds
 int32_t data_api_get_life_remaining(DataAPI *data_api) {
-  return 0;
+  return data_api->charge_by_time - time(NULL);
 };
 
-//! Get the record run time of the watch
-//! @param data_api A pointer to an existing DataAPI
-//! @return The record run time of the watch in seconds
+// Get the record run time of the watch
 int32_t data_api_get_record_run_time(DataAPI *data_api) {
-  return 0;
+  if (data_api_get_run_time(data_api, 0) > data_api->record_run_time) {
+    return data_api_get_run_time(data_api, 0);
+  }
+  return data_api->record_run_time;
 };
 
-//! Get the run time at a certain charge cycle returns negative value if no data
-//! @param data_api A pointer to an existing DataAPI
-//! @param index The index of the charge cycle to use (0 is current max life)
-//! @return The number of seconds since the last charge
+// Get the run time at a certain charge cycle returns negative value if no data
 int32_t data_api_get_run_time(DataAPI *data_api, uint16_t index) {
-  return 0;
+  if (!index) {
+    if (data_api->last_charged_time > 0) {
+      return time(NULL) - data_api->last_charged_time;
+    } else {
+      return -1;
+    }
+  } else {
+    return data_api->run_times[index - 1];
+  }
 };
 
-//! Get the maximum battery life possible at a certain charge cycle (0 is current)
-//! @param data_api A pointer to an existing DataAPI
-//! @param index The index of the charge cycle to use (0 is current max life)
-//! @return The maximum seconds of battery life
+// Get the maximum battery life possible at a certain charge cycle (0 is current)
 int32_t data_api_get_max_life(DataAPI *data_api, uint16_t index) {
-  return 0;
+  if (!index) {
+    return data_api->charge_rate * (-100);
+  } else {
+    return data_api->max_lives[index - 1];
+  }
 };
 
-//! Get the current percent-per-day of battery life
-//! @param data_api A pointer to an existing DataAPI
-//! @return The current percent-per-day discharge rate
-int32_t data_api_get_percent_per_day(DataAPI *data_api) {
-  return 0;
-};
-
-//! Get the current battery percentage (this is an estimate of the exact value)
-//! @param data_api A pointer to an existing DataAPI
-//! @return An estimate of the current exact battery percent
+// Get the current battery percentage (this is an estimate of the exact value)
 uint8_t data_api_get_battery_percent(DataAPI *data_api) {
-  return 0;
+  // calculate exact percent
+  int32_t percent = data_api->data_pt_percents[0] +
+    (time(NULL) - data_api->data_pt_epochs[0]) / data_api->charge_rate;
+  // restrict it to a valid range
+  // TODO: Determine valid range by actual percent, not last loaded data point
+  if (percent > data_api->data_pt_percents[0]) {
+    percent = data_api->data_pt_percents[0];
+  } else if (percent <= data_api->data_pt_percents[0] - 10) {
+    percent = data_api->data_pt_percents[0] - 9;
+  }
+  if (percent < 1) {
+    percent = 1;
+  }
+  return percent;
 };
 
-//! Get a data point by its index with 0 being the most recent
-//! @param data_api A pointer to an existing DataAPI
-//! @param index The index of the point to get
-//! @param epoch A pointer to an int32_t to which to set the epoch
-//! @param percent A pointer to a uint8_t to which to set the battery percent
-void data_api_get_data_point(DataAPI *data_api, uint16_t index, int32_t *epoch,
+// Get a data point by its index with 0 being the most recent
+bool data_api_get_data_point(DataAPI *data_api, uint16_t index, int32_t *epoch,
                              uint8_t *percent) {
-
+  // check if out of range
+  if (index < data_api->data_pt_start_index ||
+    index >= data_api->data_pt_start_index + data_api->data_pt_count) {
+    // check if should load more or if no more data available
+    if (data_api->data_pt_count < DATA_POINT_MAX_COUNT) {
+      return false;
+    }
+    // load in a new data range
+    prv_load_data_from_background(data_api, index);
+  }
+  // set values
+  (*epoch) = data_api->data_pt_epochs[index - data_api->data_pt_start_index];
+  (*percent) = data_api->data_pt_percents[index - data_api->data_pt_start_index];
+  return true;
 };
 
-//! Get the number of charge cycles which include the last x number of seconds (0 gets all points)
-//! @param data_api A pointer to an existing DataAPI
-//! @param seconds The number of seconds back to count
-//! @return The minimum number of charge cycles to encompass that time span
-uint16_t data_api_get_charge_cycle_count_including_seconds(DataAPI *data_api, int32_t seconds) {
-  return 0;
-};
+// Get the number of charge cycles currently loaded into memory
+uint16_t data_api_get_charge_cycle_count(DataAPI *data_api) {
+  return data_api->cycle_count;
+}
 
-//! Get the number of data points which include the last x number of seconds
-//! @param data_api A pointer to an existing DataAPI
-//! @param seconds The number of seconds back to count
-//! @return The minimum number of data points to encompass that time span
-uint16_t data_api_get_data_point_count_including_seconds(DataAPI *data_api, int32_t seconds) {
-  return 0;
-};
-
-//! Print the data to the console in CSV format
-//! @param data_api A pointer to an existing DataAPI
+// Print the data to the console in CSV format
 void data_api_print_csv(DataAPI *data_api) {
-
+  // TODO: Implement this function
 };
 
-//! Process a BatteryChargeState structure and add it to the data
-//! @param data_api A pointer to an existing DataAPI
-//! @param battery_state A BatteryChargeState containing the state of the battery
-void data_api_process_new_battery_state(DataAPI *data_api, BatteryChargeState
-                                    battery_state) {
-
-};
-
-//! Destroy data and reload from persistent storage
-//! @param data_api A pointer to an existing DataAPI
+// Destroy data and reload from persistent storage
 void data_api_reload(DataAPI *data_api) {
-
+  // TODO: Implement this function
 };
 
-//! Initialize the data
-//! @return A pointer to a newly initialized DataAPI structure
+// Initialize the data
 DataAPI *data_api_initialize(void) {
-  return NULL;
+  // create DataAPI
+  DataAPI *data_api = MALLOC(sizeof(DataAPI));
+  memset(data_api, 0, sizeof(DataAPI));
+  // load data into it from the background worker
+  prv_load_data_from_background(data_api, 0);
+  return data_api;
 };
 
-//! Terminate the data
-//! @param data_api A pointer to a previously initialized DataAPI type
+// Terminate the data
 void data_api_terminate(DataAPI *data_api) {
-
+  free(data_api);
 };

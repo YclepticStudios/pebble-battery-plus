@@ -56,7 +56,7 @@ static void prv_render_bars(GContext *ctx, GRect bounds, uint16_t click_count,
   int32_t avg_run_time = 0, avg_max_life = 0;
   int16_t bar_width = graph_bounds.size.w / GRAPH_NUMBER_OF_BARS;
   int32_t graph_y_max = 0;
-  uint16_t cycle_point_count = data_api_get_charge_cycle_count_including_seconds(data_api, 0);
+  uint16_t cycle_point_count = data_api_get_charge_cycle_count(data_api);
   for (uint16_t ii = 0; ii < cycle_point_count; ii++) {
     avg_run_time += data_api_get_run_time(data_api, ii);
     avg_max_life += data_api_get_max_life(data_api, ii);

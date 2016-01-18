@@ -11,10 +11,6 @@
 #pragma once
 #include <pebble_worker.h>
 
-//! Constants
-#define DATA_MAX_ALERT_COUNT 4
-#define WAKE_UP_ALERT_INDEX_KEY 997
-
 //! Main data structure
 typedef struct DataLibrary DataLibrary;
 
@@ -124,6 +120,11 @@ void data_print_csv(DataLibrary *data_library);
 //! @param battery_state A BatteryChargeState containing the state of the battery
 void data_process_new_battery_state(DataLibrary *data_library, BatteryChargeState
                                     battery_state);
+
+//! Write the data out in chunks to the foreground app
+//! @param data_library A pointer to an existing DataLibrary
+//! @param data_pt_start_index The index of the data point to start with in the raw data pt section
+void data_write_to_foreground(DataLibrary *data_library, uint8_t data_pt_start_index);
 
 //! Destroy data and reload from persistent storage
 //! @param data_library A pointer to an existing DataLibrary

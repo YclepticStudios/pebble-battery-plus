@@ -9,11 +9,10 @@
 //! @date January 16, 2015
 //! @bugs No known bugs
 
+#pragma once
 #include <pebble.h>
+#include "data_shared.h"
 
-//! Constants
-#define DATA_MAX_ALERT_COUNT 4
-#define WAKE_UP_ALERT_INDEX_KEY 997
 
 //! Main data structure
 typedef struct DataAPI DataAPI;
@@ -51,10 +50,6 @@ int32_t data_api_get_alert_threshold(DataAPI *data_api, uint8_t index);
 //! @param data_api A pointer to an existing DataAPI
 //! @return The current number of scheduled alerts
 uint8_t data_api_get_alert_count(DataAPI *data_api);
-
-//! Refresh all alerts and schedule timers which will do the actual waking up
-//! @param data_api A pointer to an existing DataAPI
-void data_api_refresh_all_alerts(DataAPI *data_api);
 
 //! Create a new alert at a certain threshold
 //! @param data_api A pointer to an existing DataAPI
@@ -99,11 +94,6 @@ int32_t data_api_get_run_time(DataAPI *data_api, uint16_t index);
 //! @return The maximum seconds of battery life
 int32_t data_api_get_max_life(DataAPI *data_api, uint16_t index);
 
-//! Get the current percent-per-day of battery life
-//! @param data_api A pointer to an existing DataAPI
-//! @return The current percent-per-day discharge rate
-int32_t data_api_get_percent_per_day(DataAPI *data_api);
-
 //! Get the current battery percentage (this is an estimate of the exact value)
 //! @param data_api A pointer to an existing DataAPI
 //! @return An estimate of the current exact battery percent
@@ -114,20 +104,14 @@ uint8_t data_api_get_battery_percent(DataAPI *data_api);
 //! @param index The index of the point to get
 //! @param epoch A pointer to an int32_t to which to set the epoch
 //! @param percent A pointer to a uint8_t to which to set the battery percent
-void data_api_get_data_point(DataAPI *data_api, uint16_t index, int32_t *epoch,
+//! @return True if there is a data point, else false if out of points
+bool data_api_get_data_point(DataAPI *data_api, uint16_t index, int32_t *epoch,
                              uint8_t *percent);
 
-//! Get the number of charge cycles which include the last x number of seconds (0 gets all points)
+//! Get the number of charge cycles currently loaded into memory
 //! @param data_api A pointer to an existing DataAPI
-//! @param seconds The number of seconds back to count
-//! @return The minimum number of charge cycles to encompass that time span
-uint16_t data_api_get_charge_cycle_count_including_seconds(DataAPI *data_api, int32_t seconds);
-
-//! Get the number of data points which include the last x number of seconds
-//! @param data_api A pointer to an existing DataAPI
-//! @param seconds The number of seconds back to count
-//! @return The minimum number of data points to encompass that time span
-uint16_t data_api_get_data_point_count_including_seconds(DataAPI *data_api, int32_t seconds);
+//! @return The number of cycles loaded into memory
+uint16_t data_api_get_charge_cycle_count(DataAPI *data_api);
 
 //! Print the data to the console in CSV format
 //! @param data_api A pointer to an existing DataAPI

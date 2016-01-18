@@ -154,7 +154,7 @@ void menu_show(DataAPI *data_api) {
   // create alert level
   int days, hours;
   uint8_t alert_count = data_api_get_alert_count(data_api);
-  static char label_buffs[DATA_MAX_ALERT_COUNT][19];
+  static char label_buffs[DATA_ALERT_MAX_COUNT][19];
   s_alert_level = action_menu_level_create(alert_count + 1);
   action_menu_level_add_child(s_root_level, s_alert_level, "Alerts");
   ActionMenuLevel *menu_level;
@@ -169,7 +169,7 @@ void menu_show(DataAPI *data_api) {
     action_menu_level_add_action(menu_level, "Edit", prv_alert_edit_handler, (void*)index);
     action_menu_level_add_action(menu_level, "Delete", prv_alert_delete_handler, (void*)index);
   }
-  if (alert_count < DATA_MAX_ALERT_COUNT) {
+  if (alert_count < DATA_ALERT_MAX_COUNT) {
     action_menu_level_add_action(s_alert_level, "Add Alert", prv_action_performed_handler,
       (void *) ActionTypeAddAlert);
   }

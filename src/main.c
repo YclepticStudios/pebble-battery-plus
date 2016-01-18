@@ -21,7 +21,7 @@
 // Main data structure
 static struct {
   Window        *window;          //< The base window for the application
-  DataAPI   *data_api;    //< The main data pointer for all data functions
+  DataAPI       *data_api;        //< The main data pointer for all data functions
 } main_data;
 
 
@@ -120,10 +120,15 @@ static void prv_initialize_popup(void) {
 
 // Initialize the program
 static void prv_initialize_main(void) {
+  // start background worker
+  bool is_running = app_worker_is_running();
+  app_worker_launch();
+  // TODO: Deal with this in a better manner
+  if (!is_running) {
+    psleep(200);
+  }
   // load data
   main_data.data_api = data_api_initialize();
-  // start background worker
-  app_worker_launch();
   // initialize window
   main_data.window = window_create();
   ASSERT(main_data.window);

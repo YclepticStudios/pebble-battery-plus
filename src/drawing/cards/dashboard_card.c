@@ -113,7 +113,7 @@ static void prv_render_ring(GContext *ctx, GRect bounds, DataAPI *data_api) {
   // calculate angles for ring color change positions
   int32_t max_life_sec = data_api_get_max_life(data_api, 0);
   uint8_t angle_count = 0;
-  int32_t angles[DATA_MAX_ALERT_COUNT + 2];
+  int32_t angles[DATA_ALERT_MAX_COUNT + 2];
   // calculate angles
   angles[angle_count++] = TRIG_MAX_ANGLE * data_api_get_battery_percent(data_api) / 100;
   angles[angle_count++] = 0;

@@ -45,23 +45,26 @@ static void prv_render_line(GContext *ctx, GRect bounds, int32_t graph_x_range,
   int32_t node_epoch;
   uint8_t node_percent;
   int32_t cur_epoch = time(NULL);
-  int16_t data_point_count = data_api_get_data_point_count_including_seconds(data_api,
-    graph_x_range);
-  GPoint data_points[data_point_count + 3];
+  int16_t data_point_count = DATA_POINT_MAX_COUNT;
+  GPoint *data_points = MALLOC(sizeof(GPoint) * (data_point_count + 3));
   // add data point for current estimated battery percent so graph reaches right edge of screen
   data_points[index].x = graph_bounds.origin.x + graph_bounds.size.w;
   data_points[index].y = graph_bounds.origin.y + graph_bounds.size.h -
     graph_bounds.size.h * data_api_get_battery_percent(data_api) / GRAPH_Y_RANGE;
   index++;
-  for (uint16_t ii = 0; ii < data_point_count; ii++) {
-    // get the data point
-    data_api_get_data_point(data_api, index - 1, &node_epoch, &node_percent);
+  while (data_api_get_data_point(data_api, index - 1, &node_epoch, &node_percent)) {
     // calculate screen location
     data_points[index].x = graph_bounds.origin.x + graph_bounds.size.w -
       graph_bounds.size.w * (cur_epoch - node_epoch) / graph_x_range;
     data_points[index].y = graph_bounds.origin.y + graph_bounds.size.h -
       graph_bounds.size.h * node_percent / GRAPH_Y_RANGE;
     index++;
+    // check if too big and increase array size
+    if (index + 1 >= data_point_count) {
+      data_point_count += DATA_POINT_MAX_COUNT;
+      data_points = realloc(data_points, sizeof(GPoint) * (data_point_count + 3));
+      ASSERT(data_points);
+    }
   }
   // add two last points along bottom of data to fill data
   data_points[index] = GPoint(data_points[index - 1].x,
@@ -69,7 +72,7 @@ static void prv_render_line(GContext *ctx, GRect bounds, int32_t graph_x_range,
   data_points[index + 1] = GPoint(data_points[0].x,
     graph_bounds.origin.y + graph_bounds.size.h);
   // draw graph fill
-  GPathInfo path_info = { .num_points = ARRAY_LENGTH(data_points), .points = data_points };
+  GPathInfo path_info = { .num_points = index + 2, .points = data_points };
   GPath *path = gpath_create(&path_info);
   graphics_context_set_fill_color(ctx, GColorGreen);
   graphics_context_set_antialiased(ctx, false);

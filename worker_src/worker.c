@@ -13,6 +13,7 @@
 #include <pebble_worker.h>
 #include "data_library.h"
 #define PEBBLE_BACKGROUND_WORKER
+#include "../src/data/data_shared.h"
 #include "../src/utility.c"
 #undef PEBBLE_BACKGROUND_WORKER
 
@@ -31,7 +32,14 @@ static void prv_battery_alert_handler(uint8_t alert_index) {
 // Worker message callback
 static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
   // TODO: Deal with this
-  data_refresh_all_alerts(data_library);
+  // check what was sent
+  switch (type) {
+    case WorkerMessageSendData:
+      data_write_to_foreground(data_library, data->data0);
+      break;
+    default:
+      break;
+  }
 }
 
 // Battery state change callback
