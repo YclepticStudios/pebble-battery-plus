@@ -15,7 +15,8 @@
 //! Set the file (PDC image/sequence) to display in the center of the screen
 //! @param window The base window layer of the Popup window
 //! @param resource_id The ID of the resource to load
-void popup_window_set_visual(Window *window, uint32_t resource_id);
+//! @param auto_align_elements Whether to automatically reposition the text based on the visual
+void popup_window_set_visual(Window *window, uint32_t resource_id, bool auto_align_elements);
 
 //! Set the title and footer text displayed on the window
 //! @param window The base window layer of the Popup window

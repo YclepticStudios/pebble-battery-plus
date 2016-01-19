@@ -40,7 +40,22 @@ typedef struct {
 // Private Functions
 //
 
-static void next_frame_handler(void *context) {
+// Rearrange elements based on file visual size
+static void prv_recalculate_layer_bounds(Window *window, GSize file_size) {
+  PopupWindowData *window_data = window_get_user_data(window);
+  GRect window_bounds = layer_get_bounds(window_get_root_layer(window));
+  // set title bounds
+  GRect tmp_bounds = GRect(0, 0, window_bounds.size.w, 20);
+  tmp_bounds.origin.y = (window_bounds.size.h - file_size.h) / 4 - PBL_IF_RECT_ELSE(11, 6);
+  layer_set_frame(text_layer_get_layer(window_data->title_layer), tmp_bounds);
+  // set footer bounds
+  tmp_bounds.origin.y += (window_bounds.size.h - file_size.h) / 2 + file_size.h -
+    PBL_IF_RECT_ELSE(2, 12);
+  layer_set_frame(text_layer_get_layer(window_data->footer_layer), tmp_bounds);
+}
+
+// Index to next frame
+static void prv_next_frame_handler(void *context) {
   Window *window = context;
   PopupWindowData *window_data = window_get_user_data(window);
   window_data->app_timer = NULL;
@@ -57,7 +72,7 @@ static void next_frame_handler(void *context) {
   // refresh
   layer_mark_dirty(window_data->canvas_layer);
   // schedule next timer
-  window_data->app_timer = app_timer_register(SEQUENCE_NEXT_FRAME_DELAY, next_frame_handler,
+  window_data->app_timer = app_timer_register(SEQUENCE_NEXT_FRAME_DELAY, prv_next_frame_handler,
     window);
 }
 
@@ -99,7 +114,7 @@ static void prv_window_appear_handler(Window *window) {
   // resume/start animation playback if animation file type
   PopupWindowData *window_data = window_get_user_data(window);
   if (window_data->file_type == FileTypePDCSequence) {
-    app_timer_register(SEQUENCE_NEXT_FRAME_DELAY, next_frame_handler, window);
+    app_timer_register(SEQUENCE_NEXT_FRAME_DELAY, prv_next_frame_handler, window);
   }
 }
 
@@ -123,19 +138,29 @@ static void prv_window_unload_handler(Window *window) {
 //
 
 // Set the file (PDC image/sequence) to display in the center of the screen
-void popup_window_set_visual(Window *window, uint32_t resource_id) {
+void popup_window_set_visual(Window *window, uint32_t resource_id, bool auto_align_elements) {
   PopupWindowData *window_data = window_get_user_data(window);
   // try to read the file and determine its type
   void *file = gdraw_command_image_create_with_resource(resource_id);
   if (file) {
     window_data->file = file;
     window_data->file_type = FileTypePDCImage;
+    // resize elements
+    if (auto_align_elements) {
+      GSize image_size = gdraw_command_image_get_bounds_size(window_data->file);
+      prv_recalculate_layer_bounds(window, image_size);
+    }
     return;
   }
   file = gdraw_command_sequence_create_with_resource(resource_id);
   if (file) {
     window_data->file = file;
     window_data->file_type = FileTypePDCSequence;
+    // resize elements
+    if (auto_align_elements) {
+      GSize image_size = gdraw_command_sequence_get_bounds_size(window_data->file);
+      prv_recalculate_layer_bounds(window, image_size);
+    }
     return;
   }
   window_data->file = NULL;

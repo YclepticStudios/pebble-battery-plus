@@ -117,15 +117,40 @@ static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
 
 // Initialize the popup window
 static void prv_initialize_popup(void) {
+  // load data
+  if (!main_data.data_api) {
+    main_data.data_api = data_api_initialize();
+  }
   // read alert index
   uint8_t alert_index = persist_read_int(WAKE_UP_ALERT_INDEX_KEY);
   persist_delete(WAKE_UP_ALERT_INDEX_KEY);
+  alert_index = 1;
+  // get text
+  static char buff[16];
+  int day = data_api_get_alert_threshold(main_data.data_api, alert_index) / SEC_IN_DAY;
+  int hr = data_api_get_alert_threshold(main_data.data_api, alert_index) % SEC_IN_DAY / SEC_IN_HR;
+  if (day && hr) {
+    snprintf(buff, sizeof(buff), "%dd %dh Left", day, hr);
+  } else if (day) {
+    if (day > 1) {
+      snprintf(buff, sizeof(buff), "%d Days Left", day);
+    } else {
+      snprintf(buff, sizeof(buff), "%d Day Left", day);
+    }
+  } else {
+    if (hr > 1) {
+      snprintf(buff, sizeof(buff), "%d Hours Left", hr);
+    } else {
+      snprintf(buff, sizeof(buff), "%d Hour Left", hr);
+    }
+  }
   // create popup alert window
   Window *popup_window = popup_window_create(true);
   popup_window_set_close_on_animation_end(popup_window, true);
-  window_set_background_color(popup_window, GColorChromeYellow);
-  popup_window_set_text(popup_window, "Battery+", "Low Battery");
-  popup_window_set_visual(popup_window, RESOURCE_ID_CHECK_MARK_IMAGE);
+  window_set_background_color(popup_window, PBL_IF_BW_ELSE(GColorWhite,
+    data_api_get_alert_color(main_data.data_api, alert_index)));
+  popup_window_set_text(popup_window, "Battery+", buff);
+  popup_window_set_visual(popup_window, RESOURCE_ID_LOW_BATTERY_IMAGE, true);
   window_stack_push(popup_window, true);
   // vibrate
   vibes_short_pulse();
@@ -166,11 +191,18 @@ static void prv_terminate_main(void) {
   data_api_terminate(main_data.data_api);
 }
 
+// Terminate the popup window
+static void prv_terminate_popup(void) {
+  // unload data
+  data_api_terminate(main_data.data_api);
+}
+
 // Entry point
 int main(void) {
+  // set main data to 0
+  memset(&main_data, 0, sizeof(main_data));
   // check launch reason
   if (launch_reason() == APP_LAUNCH_WORKER) {
-  //if (true) { // TODO: Fix this
     prv_initialize_popup();
   } else {
     prv_initialize_main();
@@ -179,7 +211,8 @@ int main(void) {
   app_event_loop();
   // terminate proper part
   if (launch_reason() != APP_LAUNCH_WORKER) {
-  //if (false) { // TODO: Fix this
     prv_terminate_main();
+  } else {
+    prv_terminate_popup();
   }
 }

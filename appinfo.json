@@ -16,8 +16,8 @@
     "media": [
       {
         "type": "raw",
-        "name": "CHECK_MARK_IMAGE",
-        "file": "check_mark.pdc"
+        "name": "LOW_BATTERY_IMAGE",
+        "file": "low_battery_2.pdc"
       },
       {
         "type": "raw",

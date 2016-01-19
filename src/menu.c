@@ -53,7 +53,7 @@ static void prv_pin_window_return_handler(bool canceled, uint8_t value_count, in
     window_stack_pop(true);
     // show popup notification
     Window *popup_window = popup_window_create(true);
-    popup_window_set_visual(popup_window, RESOURCE_ID_CONFIRM_SEQUENCE);
+    popup_window_set_visual(popup_window, RESOURCE_ID_CONFIRM_SEQUENCE, false);
     popup_window_set_text(popup_window, "", "Alert Set");
     window_stack_push(popup_window, true);
   }
@@ -92,7 +92,7 @@ static void prv_alert_delete_handler(ActionMenu *action_menu, const ActionMenuIt
   data_api_unschedule_alert(context, index);
   // show popup notification
   Window *popup_window = popup_window_create(true);
-  popup_window_set_visual(popup_window, RESOURCE_ID_DELETED_SEQUENCE);
+  popup_window_set_visual(popup_window, RESOURCE_ID_DELETED_SEQUENCE, false);
   popup_window_set_text(popup_window, "", "Alert Deleted");
   window_stack_push(popup_window, true);
 }
