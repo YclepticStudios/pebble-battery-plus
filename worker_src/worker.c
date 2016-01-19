@@ -46,6 +46,9 @@ static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
     case WorkerMessageUnscheduleAlert:
       data_unschedule_alert(data_library, data->data0);
       break;
+    case WorkerMessageExportData:
+      data_print_csv(data_library);
+      break;
     default:
       return;
   }

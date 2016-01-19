@@ -197,7 +197,8 @@ uint16_t data_api_get_charge_cycle_count(DataAPI *data_api) {
 
 // Print the data to the console in CSV format
 void data_api_print_csv(DataAPI *data_api) {
-  // TODO: Implement this function
+  AppWorkerMessage message;
+  app_worker_send_message(WorkerMessageExportData, &message);
 };
 
 // Destroy data and reload from persistent storage

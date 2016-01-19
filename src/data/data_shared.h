@@ -54,5 +54,6 @@ typedef enum {
   WorkerMessageReloadData,
   WorkerMessageScheduleAlert,
   WorkerMessageUnscheduleAlert,
-  WorkerMessageAlertEvent
+  WorkerMessageAlertEvent,
+  WorkerMessageExportData
 } WorkerMessage;
