@@ -51,7 +51,6 @@ void data_unschedule_alert(DataLibrary *data_library, uint8_t index);
 //! Register callback for when an alert goes off
 //! @param data_library A pointer to an existing DataLibrary
 //! @param callback The callback to register
-// TODO: Add this to the foreground app to get alerts when awake
 void data_register_alert_callback(DataLibrary *data_library, BatteryAlertCallback callback);
 
 //! Get the time the watch needs to be charged by

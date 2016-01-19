@@ -971,7 +971,6 @@ void data_write_to_foreground(DataLibrary *data_library, uint8_t data_pt_start_i
   persist_delete(TEMP_LOCK_KEY);
   persist_delete(TEMP_COMMUNICATION_KEY);
   // loop and wait
-  // TODO: Prevent this from going into an endless loop somehow
   uint16_t bytes_written = 0, bytes_to_write = 0;
   time_t end_time = time(NULL) + 1;
   while (time(NULL) <= end_time) {
@@ -1005,14 +1004,14 @@ DataLibrary *data_initialize(void) {
   // read data from persistent storage
   if (!persist_exists(PERSIST_DATA_KEY)) {
     prv_first_launch_prep(data_library);
-    // send message to the foreground telling it to refresh
-    AppWorkerMessage msg_data = { .data0 = 0 };
-    app_worker_send_message(WorkerMessageReloadData, &msg_data);
   } else {
     prv_persist_read_data_block(data_library, 0);
     prv_calculate_charge_cycles(data_library, CYCLE_LINKED_LIST_MIN_SIZE);
     data_refresh_all_alerts(data_library);
   }
+  // send message to the foreground telling it to refresh
+  AppWorkerMessage msg_data = { .data0 = 0 };
+  app_worker_send_message(WorkerMessageReloadData, &msg_data);
   return data_library;
 }
 

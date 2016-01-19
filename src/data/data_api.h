@@ -61,12 +61,6 @@ void data_api_schedule_alert(DataAPI *data_api, int32_t seconds);
 //! @param index The index of the alert
 void data_api_unschedule_alert(DataAPI *data_api, uint8_t index);
 
-//! Register callback for when an alert goes off
-//! @param data_api A pointer to an existing DataAPI
-//! @param callback The callback to register
-// TODO: Add this to the foreground app to get alerts when awake
-void data_api_register_alert_callback(DataAPI *data_api, BatteryAPIAlertCallback callback);
-
 //! Get the time the watch needs to be charged by
 //! @param data_api A pointer to an existing DataAPI
 //! @return The time the watch needs to be charged as a UTC epoch

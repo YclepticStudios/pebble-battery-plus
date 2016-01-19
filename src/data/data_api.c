@@ -45,7 +45,6 @@ static char *prv_alert_text[][4] = {
 
 // Sit and wait until data is loaded from the background
 static void prv_load_data_from_background(DataAPI *data_api, uint16_t data_pt_start_index) {
-  // TODO: Add some way to prevent it from getting stuck in this endless loop
   // delete any old data that may be loaded
   persist_delete(TEMP_LOCK_KEY);
   persist_delete(TEMP_COMMUNICATION_KEY);
@@ -111,12 +110,6 @@ void data_api_schedule_alert(DataAPI *data_api, int32_t seconds) {
 void data_api_unschedule_alert(DataAPI *data_api, uint8_t index) {
   AppWorkerMessage message = {.data0 = index};
   app_worker_send_message(WorkerMessageUnscheduleAlert, &message);
-}
-
-// Register callback for when an alert goes off
-// TODO: Add this to the foreground app to get alerts when awake
-void data_api_register_alert_callback(DataAPI *data_api, BatteryAPIAlertCallback callback) {
-  // TODO: Implement this function
 }
 
 // Get the time the watch needs to be charged by

@@ -136,7 +136,6 @@ static void prv_initialize_main(void) {
   // start background worker
   bool is_running = app_worker_is_running();
   app_worker_launch();
-  // TODO: Deal with this in a better manner
   if (!is_running) {
     psleep(200);
   }
