@@ -59,6 +59,10 @@ static void prv_render_line(GContext *ctx, GRect bounds, int32_t graph_x_range,
     data_points[index].y = graph_bounds.origin.y + graph_bounds.size.h -
       graph_bounds.size.h * node_percent / GRAPH_Y_RANGE;
     index++;
+    // check if should exit
+    if (data_points[index - 1].x <= 0) {
+      break;
+    }
     // check if too big and increase array size
     if (index + 1 >= data_point_count) {
       data_point_count += DATA_POINT_MAX_COUNT;

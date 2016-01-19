@@ -183,7 +183,8 @@ bool data_api_get_data_point(DataAPI *data_api, uint16_t index, int32_t *epoch,
   if (index < data_api->data_pt_start_index ||
     index >= data_api->data_pt_start_index + data_api->data_pt_count) {
     // check if should load more or if no more data available
-    if (data_api->data_pt_count < DATA_POINT_MAX_COUNT) {
+    if (data_api->data_pt_count < DATA_POINT_MAX_COUNT &&
+      index >= data_api->data_pt_start_index + data_api->data_pt_count) {
       return false;
     }
     // load in a new data range
