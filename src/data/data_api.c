@@ -54,7 +54,8 @@ static void prv_load_data_from_background(DataAPI *data_api, uint16_t data_pt_st
   app_worker_send_message(WorkerMessageSendData, &message);
   // loop and wait
   uint16_t bytes_read = 0;
-  while (1) {
+  time_t end_time = time(NULL) + 1;
+  while (time(NULL) <= end_time) {
     // check if data key exists
     if (persist_exists(TEMP_LOCK_KEY)) {
       // read in data
@@ -68,7 +69,7 @@ static void prv_load_data_from_background(DataAPI *data_api, uint16_t data_pt_st
       }
     }
     // wait
-    psleep(10);
+    psleep(1);
   }
 }
 
