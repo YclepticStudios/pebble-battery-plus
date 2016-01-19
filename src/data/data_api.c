@@ -99,12 +99,17 @@ uint8_t data_api_get_alert_count(DataAPI *data_api) {
 
 // Create a new alert at a certain threshold
 void data_api_schedule_alert(DataAPI *data_api, int32_t seconds) {
-  // TODO: Implement this function
+  AppWorkerMessage message = (AppWorkerMessage){
+    .data0 = (seconds & 0xFFFF0000) >> 16,
+    .data1 = seconds & 0x0000FFFF
+  };
+  app_worker_send_message(WorkerMessageScheduleAlert, &message);
 }
 
 // Destroy an existing alert at a certain index
 void data_api_unschedule_alert(DataAPI *data_api, uint8_t index) {
-  // TODO: Implement this function
+  AppWorkerMessage message = {.data0 = index};
+  app_worker_send_message(WorkerMessageUnscheduleAlert, &message);
 }
 
 // Register callback for when an alert goes off

@@ -25,7 +25,10 @@ static DataLibrary *data_library;
 static void prv_battery_alert_handler(uint8_t alert_index) {
   // write out the index of the alert
   persist_write_int(WAKE_UP_ALERT_INDEX_KEY, alert_index);
-  // launch main app
+  // send message in case app is already open
+  AppWorkerMessage message = {.data0 = alert_index};
+  app_worker_send_message(WorkerMessageAlertEvent, &message);
+  // launch main app in case it is closed
   worker_launch_app();
 }
 
@@ -35,6 +38,13 @@ static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
   switch (type) {
     case WorkerMessageSendData:
       data_write_to_foreground(data_library, data->data0);
+      break;
+    case WorkerMessageScheduleAlert:;
+      int32_t seconds = (data->data0 << 16) | (data->data1 & 0x0000FFFF);
+      data_schedule_alert(data_library, seconds);
+      break;
+    case WorkerMessageUnscheduleAlert:
+      data_unschedule_alert(data_library, data->data0);
       break;
     default:
       return;

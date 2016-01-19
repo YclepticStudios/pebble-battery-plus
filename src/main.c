@@ -24,6 +24,9 @@ static struct {
   DataAPI       *data_api;        //< The main data pointer for all data functions
 } main_data;
 
+// Function declarations
+static void prv_initialize_popup(void);
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Callbacks
@@ -97,12 +100,14 @@ static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
   switch (type) {
     case WorkerMessageReloadData:
       data_api_reload(main_data.data_api);
+      drawing_refresh();
+      break;
+    case WorkerMessageAlertEvent:
+      prv_initialize_popup();
       break;
     default:
       return;
   }
-  // refresh the screen
-  drawing_refresh();
 }
 
 
@@ -119,8 +124,11 @@ static void prv_initialize_popup(void) {
   Window *popup_window = popup_window_create(true);
   popup_window_set_close_on_animation_end(popup_window, true);
   window_set_background_color(popup_window, GColorChromeYellow);
-  popup_window_set_visual(popup_window, RESOURCE_ID_CONFIRM_SEQUENCE);
+  popup_window_set_text(popup_window, "Battery+", "Low Battery");
+  popup_window_set_visual(popup_window, RESOURCE_ID_CHECK_MARK_IMAGE);
   window_stack_push(popup_window, true);
+  // vibrate
+  vibes_short_pulse();
 }
 
 // Initialize the program

@@ -51,5 +51,8 @@ typedef struct DataAPI {
 //! App worker message commands
 typedef enum {
   WorkerMessageSendData,
-  WorkerMessageReloadData
+  WorkerMessageReloadData,
+  WorkerMessageScheduleAlert,
+  WorkerMessageUnscheduleAlert,
+  WorkerMessageAlertEvent
 } WorkerMessage;

@@ -117,7 +117,6 @@ static void prv_app_timer_alert_callback(void *data) {
   }
   // clean up timer
   uint8_t index = timer_data->index;
-  free(timer_data);
   data_library->app_timers[index].app_timer = NULL;
 }
 
@@ -645,6 +644,7 @@ void data_refresh_all_alerts(DataLibrary *data_library) {
       } else {
         // the new charge rate puts this timer in the past, so raise it's event now
         app_timer_cancel(data_library->app_timers[index].app_timer);
+        data_library->app_timers[index].app_timer = NULL;
         prv_app_timer_alert_callback(&data_library->app_timers[index]);
       }
     } else if (delay_time > 0) {
@@ -660,8 +660,6 @@ void data_refresh_all_alerts(DataLibrary *data_library) {
 // Create a new alert at a certain threshold
 void data_schedule_alert(DataLibrary *data_library, int32_t seconds) {
   AlertData *alert_data = &data_library->alert_data;
-  // reload from persistent storage
-  persist_read_data(PERSIST_ALERTS_KEY, alert_data, persist_get_size(PERSIST_ALERTS_KEY));
   // loop over alerts and add in proper position (sorted short to long)
   uint8_t index;
   for (index = 0; index < alert_data->scheduled_count; index++) {
@@ -679,6 +677,8 @@ void data_schedule_alert(DataLibrary *data_library, int32_t seconds) {
   alert_data->scheduled_count++;
   // write out the new data
   persist_write_data(PERSIST_ALERTS_KEY, alert_data, sizeof(AlertData));
+  // refresh scheduled alert timers
+  data_refresh_all_alerts(data_library);
   // send message to the foreground telling it to refresh
   AppWorkerMessage msg_data = { .data0 = 0 };
   app_worker_send_message(WorkerMessageReloadData, &msg_data);
@@ -687,8 +687,6 @@ void data_schedule_alert(DataLibrary *data_library, int32_t seconds) {
 // Destroy an existing alert at a certain index
 void data_unschedule_alert(DataLibrary *data_library, uint8_t index) {
   AlertData *alert_data = &data_library->alert_data;
-  // reload from persistent storage
-  persist_read_data(PERSIST_ALERTS_KEY, alert_data, persist_get_size(PERSIST_ALERTS_KEY));
   // move memory back over that position
   memmove(&alert_data->thresholds[index], &alert_data->thresholds[index + 1],
     (DATA_ALERT_MAX_COUNT - index - 1) * sizeof(alert_data->thresholds[0]));
@@ -700,6 +698,8 @@ void data_unschedule_alert(DataLibrary *data_library, uint8_t index) {
   }
   // write out the new data
   persist_write_data(PERSIST_ALERTS_KEY, alert_data, sizeof(AlertData));
+  // refresh scheduled alert timers
+  data_refresh_all_alerts(data_library);
   // send message to the foreground telling it to refresh
   AppWorkerMessage msg_data = { .data0 = 0 };
   app_worker_send_message(WorkerMessageReloadData, &msg_data);
