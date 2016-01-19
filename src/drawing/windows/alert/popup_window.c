@@ -13,7 +13,7 @@
 
 // Constants
 #define SEQUENCE_NEXT_FRAME_DELAY 33
-#define BACKGROUND_DEFAULT_COLOR GColorMagenta
+#define BACKGROUND_DEFAULT_COLOR PBL_IF_COLOR_ELSE(GColorMagenta, GColorWhite)
 
 // File type options
 typedef enum {
@@ -27,7 +27,8 @@ typedef struct {
   Layer         *canvas_layer;      //< Pointer to canvas Layer
   TextLayer     *title_layer;       //< Pointer to title TextLayer
   TextLayer     *footer_layer;      //< Pointer to footer TextLayer
-  AppTimer      *app_timer;         //< Animation timer for PDC sequence
+  AppTimer      *ani_timer;         //< Animation timer for PDC sequence
+  AppTimer      *timeout_timer;     //< Timer for when to close the window if in timeout mode
   void          *file;              //< Pointer to loaded file
   FileType      file_type;          //< Type of file loaded
   uint16_t      frame_index;        //< Current frame index if animation file type
@@ -54,11 +55,16 @@ static void prv_recalculate_layer_bounds(Window *window, GSize file_size) {
   layer_set_frame(text_layer_get_layer(window_data->footer_layer), tmp_bounds);
 }
 
+// Window timeout
+static void prv_window_timeout_handler(void *context) {
+  window_stack_remove(context, true);
+}
+
 // Index to next frame
 static void prv_next_frame_handler(void *context) {
   Window *window = context;
   PopupWindowData *window_data = window_get_user_data(window);
-  window_data->app_timer = NULL;
+  window_data->ani_timer = NULL;
   // check if animation is complete/wrapping
   int num_frames = gdraw_command_sequence_get_num_frames(window_data->file);
   if (window_data->frame_index >= num_frames) {
@@ -72,7 +78,7 @@ static void prv_next_frame_handler(void *context) {
   // refresh
   layer_mark_dirty(window_data->canvas_layer);
   // schedule next timer
-  window_data->app_timer = app_timer_register(SEQUENCE_NEXT_FRAME_DELAY, prv_next_frame_handler,
+  window_data->ani_timer = app_timer_register(SEQUENCE_NEXT_FRAME_DELAY, prv_next_frame_handler,
     window);
 }
 
@@ -122,8 +128,8 @@ static void prv_window_appear_handler(Window *window) {
 static void prv_window_disappear_handler(Window *window) {
   // pause animation
   PopupWindowData *window_data = window_get_user_data(window);
-  if (window_data->file_type == FileTypePDCSequence && window_data->app_timer) {
-    app_timer_cancel(window_data->app_timer);
+  if (window_data->file_type == FileTypePDCSequence && window_data->ani_timer) {
+    app_timer_cancel(window_data->ani_timer);
   }
 }
 
@@ -136,6 +142,12 @@ static void prv_window_unload_handler(Window *window) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // API Implementation
 //
+
+// Set an automatic timeout for the window
+void popup_window_set_timeout(Window *window, int32_t duration) {
+  PopupWindowData *window_data = window_get_user_data(window);
+  window_data->timeout_timer = app_timer_register(duration, prv_window_timeout_handler, window);
+}
 
 // Set the file (PDC image/sequence) to display in the center of the screen
 void popup_window_set_visual(Window *window, uint32_t resource_id, bool auto_align_elements) {
@@ -228,6 +240,9 @@ Window *popup_window_create(bool destroy_on_close) {
 // Destroy a Popup window
 void popup_window_destroy(Window *window) {
   PopupWindowData *window_data = window_get_user_data(window);
+  // cancel timers
+  app_timer_cancel(window_data->ani_timer);
+  app_timer_cancel(window_data->timeout_timer);
   // destroy the loaded file based on its type
   if (window_data->file_type == FileTypePDCImage) {
     gdraw_command_image_destroy(window_data->file);

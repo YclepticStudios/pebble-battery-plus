@@ -12,6 +12,11 @@
 #include <pebble.h>
 
 
+//! Set an automatic timeout for the window
+//! @param window The base window layer of the Popup window
+//! @param duration The amount of time in milliseconds to keep the window on the screen
+void popup_window_set_timeout(Window *window, int32_t duration);
+
 //! Set the file (PDC image/sequence) to display in the center of the screen
 //! @param window The base window layer of the Popup window
 //! @param resource_id The ID of the resource to load

@@ -17,7 +17,7 @@
       {
         "type": "raw",
         "name": "LOW_BATTERY_IMAGE",
-        "file": "low_battery_2.pdc"
+        "file": "low_battery.pdc"
       },
       {
         "type": "raw",

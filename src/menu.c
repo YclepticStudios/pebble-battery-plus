@@ -55,6 +55,9 @@ static void prv_pin_window_return_handler(bool canceled, uint8_t value_count, in
     Window *popup_window = popup_window_create(true);
     popup_window_set_visual(popup_window, RESOURCE_ID_CONFIRM_SEQUENCE, false);
     popup_window_set_text(popup_window, "", "Alert Set");
+#ifdef PBL_PLATFORM_APLITE
+    popup_window_set_timeout(popup_window, 1500);
+#endif
     window_stack_push(popup_window, true);
   }
   // free data
@@ -94,6 +97,9 @@ static void prv_alert_delete_handler(ActionMenu *action_menu, const ActionMenuIt
   Window *popup_window = popup_window_create(true);
   popup_window_set_visual(popup_window, RESOURCE_ID_DELETED_SEQUENCE, false);
   popup_window_set_text(popup_window, "", "Alert Deleted");
+#ifdef PBL_PLATFORM_APLITE
+  popup_window_set_timeout(popup_window, 1500);
+#endif
   window_stack_push(popup_window, true);
 }
 
