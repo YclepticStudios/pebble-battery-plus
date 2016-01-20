@@ -91,8 +91,14 @@ static void prv_render_selected_text(GContext *ctx, GRect bounds, uint16_t click
   txt_bounds.origin.y += 15;
   txt_bounds.size.h -= 15;
   // draw background
-  graphics_context_set_fill_color(ctx, selection_color);
+#ifdef PBL_BW
+  graphics_context_set_fill_color(ctx, GColorBlack);
   graphics_fill_rect(ctx, selection_bounds, SELECTED_TEXT_CORNER_RAD, GCornersAll);
+  selection_bounds = grect_inset(selection_bounds, GEdgeInsets1(2));
+#endif
+  graphics_context_set_fill_color(ctx, selection_color);
+  graphics_fill_rect(ctx, selection_bounds, SELECTED_TEXT_CORNER_RAD + PBL_IF_BW_ELSE(-1, 0),
+    GCornersAll);
   // draw text
   RichTextElement rich_text[] = {
     {day_buff, FONT_KEY_LECO_32_BOLD_NUMBERS},
