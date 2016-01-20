@@ -153,13 +153,25 @@ void card_render_line_graph(Layer *layer, GContext *ctx, uint16_t click_count,
   int32_t graph_x_range;
   switch (click_count % CLICK_MODE_MAX) {
     case 1:
+#ifdef PBL_PLATFORM_CHALK
+      graph_x_range = SEC_IN_DAY;
+#else
       graph_x_range = SEC_IN_DAY * 3;
+#endif
       break;
     case 2:
+#ifdef PBL_PLATFORM_CHALK
+      graph_x_range = SEC_IN_DAY * 7;
+#else
       graph_x_range = SEC_IN_DAY * 14;
+#endif
       break;
     default:
+#ifdef PBL_PLATFORM_CHALK
+      graph_x_range = SEC_IN_DAY * 3;
+#else
       graph_x_range = SEC_IN_WEEK;
+#endif
   }
   // render graph line and fill
   prv_render_line(ctx, bounds, graph_x_range, data_api);
