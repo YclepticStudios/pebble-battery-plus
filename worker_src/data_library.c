@@ -20,7 +20,7 @@
 #define MED_THRESH_DEFAULT SEC_IN_DAY   //< Default threshold for medium level
 #define DATA_BLOCK_SAVE_STATE_COUNT 50  //< Number of SaveStates that fit in one persistent write
 #define DATA_EPOCH_OFFSET 1420070400    //< Jan 1, 2015 at 0:00:00, reduces size when saving data
-#define LINKED_LIST_MAX_SIZE DATA_BLOCK_SAVE_STATE_COUNT //< Max size of linked list
+#define LINKED_LIST_MAX_SIZE DATA_BLOCK_SAVE_STATE_COUNT * 2 //< Max size of linked list
 #define CYCLE_LINKED_LIST_MIN_SIZE 9    //< The minimum number of nodes in the charge cycle list
 // Thresholds
 #define CHARGING_MIN_LENGTH 60          //< Minimum duration while charging to register (sec)
@@ -414,7 +414,7 @@ static void prv_persist_read_data_block(DataLibrary *data_library, uint16_t inde
   // prep linked list
   prv_linked_list_destroy((Node**)&data_library->head_node, &data_library->node_count);
   data_library->head_node = NULL;
-  data_library->head_node_index = index / DATA_BLOCK_SAVE_STATE_COUNT * DATA_BLOCK_SAVE_STATE_COUNT;
+  data_library->head_node_index = 0;
   // get persistent storage key
   uint32_t persist_key = persist_read_int(PERSIST_DATA_KEY);
   if (!persist_exists(persist_key)) { persist_key--; }
@@ -422,11 +422,13 @@ static void prv_persist_read_data_block(DataLibrary *data_library, uint16_t inde
   // offset the persistent key to where the data is stored
   SaveStateBlock save_state_block;
   persist_read_data(persist_key, &save_state_block, sizeof(SaveStateBlock));
-  if (index % DATA_BLOCK_SAVE_STATE_COUNT >= save_state_block.save_state_count) {
+  if (index >= save_state_block.save_state_count) {
     persist_key--;
     data_library->head_node_index += save_state_block.save_state_count;
   }
-  persist_key -= index / DATA_BLOCK_SAVE_STATE_COUNT;
+  persist_key -= ((int32_t)index - save_state_block.save_state_count) / DATA_BLOCK_SAVE_STATE_COUNT;
+  data_library->head_node_index += ((int32_t)index - save_state_block.save_state_count) /
+    DATA_BLOCK_SAVE_STATE_COUNT * DATA_BLOCK_SAVE_STATE_COUNT;
   // read in several blocks of data
   for (uint32_t key = persist_key;
        key > persist_key - (LINKED_LIST_MAX_SIZE / DATA_BLOCK_SAVE_STATE_COUNT) &&
