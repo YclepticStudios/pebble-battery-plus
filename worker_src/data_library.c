@@ -556,7 +556,7 @@ static void prv_persist_convert_legacy_data(DataLibrary *data_library) {
   persist_delete(Pers_Val++);
   uint16_t myCount = (uint16_t)persist_read_int(Pers_Val);
   persist_delete(Pers_Val++);
-  int32_t myRecord = persist_read_int(Pers_Val);
+  // int32_t myRecord = persist_read_int(Pers_Val);
   persist_delete(Pers_Val++);
   // read the array in several pieces
   for (uint16_t delta = 0; delta < size; delta += step) {
@@ -855,6 +855,7 @@ void data_print_csv(DataLibrary *data_library) {
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Any value of -1 represents an invalid statistic.");
   // print stats
   app_log(APP_LOG_LEVEL_INFO, "", 0, "--------------------- Statistics --------------------");
+  app_log(APP_LOG_LEVEL_INFO, "", 0, "Pebble Model:\t%d", watch_info_get_model());
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Current Time:\t%d", (int)time(NULL));
   app_log(APP_LOG_LEVEL_INFO, "", 0, "Last Charged:\t%d",
     (int)(time(NULL) - data_get_run_time(data_library, 0)));
