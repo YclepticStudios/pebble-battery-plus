@@ -16,6 +16,11 @@
     "media": [
       {
         "type": "raw",
+        "name": "CUP_IMAGE",
+        "file": "cup.pdc"
+      },
+      {
+        "type": "raw",
         "name": "LOW_BATTERY_IMAGE",
         "file": "low_battery.pdc"
       },

@@ -17,9 +17,11 @@
 #define CARD_BACK_COLOR_DASHBOARD PBL_IF_COLOR_ELSE(GColorLightGray, GColorBlack)
 #define CARD_BACK_COLOR_LINE_GRAPH GColorMelon
 #define CARD_BACK_COLOR_BAR_GRAPH GColorElectricBlue
+#define CARD_BACK_COLOR_RECORD_LIFE GColorPastelYellow
 #define CARD_PALETTE_DASHBOARD GBitmapFormat4BitPalette
 #define CARD_PALETTE_LINE_GRAPH GBitmapFormat2BitPalette
 #define CARD_PALETTE_BAR_GRAPH GBitmapFormat4BitPalette
+#define CARD_PALETTE_RECORD_LIFE GBitmapFormat2BitPalette
 
 //! Rich text element
 typedef struct {
@@ -59,4 +61,12 @@ void card_render_line_graph(Layer *layer, GContext *ctx, uint16_t click_count,
 //! @param click_count Number of select click events on this card
 //! @param data_api A pointer to the main data library
 void card_render_bar_graph(Layer *layer, GContext *ctx, uint16_t click_count,
+                           DataAPI *data_api);
+
+//! Rendering function for record life card
+//! @param layer The base layer for this card
+//! @param ctx The graphics context which will be rendered on
+//! @param click_count Number of select click events on this card
+//! @param data_api A pointer to the main data library
+void card_render_record_life(Layer *layer, GContext *ctx, uint16_t click_count,
                            DataAPI *data_api);

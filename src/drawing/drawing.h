@@ -14,7 +14,7 @@
 #include "../data/data_api.h"
 
 // Constants
-#define DRAWING_CARD_COUNT 3
+#define DRAWING_CARD_COUNT 4
 
 
 //! Refresh current card
