@@ -8,6 +8,7 @@
 // @date January 2, 2015
 // @bugs No known bugs
 
+#include <pebble_worker.h>
 #include "data_library.h"
 #define PEBBLE_BACKGROUND_WORKER
 #include "../src/data/data_shared.h"
@@ -634,8 +635,16 @@ void data_refresh_all_alerts(DataLibrary *data_library) {
   // load from persistent storage
   persist_read_data(PERSIST_ALERTS_KEY, alert_data, persist_get_size(PERSIST_ALERTS_KEY));
   // cancel all existing alerts and reschedule new ones
+  BatteryChargeState battery_state = battery_state_service_peek();
   time_t delay_time, time_remaining = data_get_life_remaining(data_library);
   for (uint8_t index = 0; index < alert_data->scheduled_count; index++) {
+    // cancel alerts if charging
+    if (battery_state.is_charging) {
+      if (data_library->app_timers[index].app_timer) {
+        app_timer_cancel(data_library->app_timers[index].app_timer);
+      }
+      continue;
+    }
     // get time remaining
     delay_time = (time_remaining - alert_data->thresholds[index]) * 1000;
     // cancel, reschedule, and schedule timers
