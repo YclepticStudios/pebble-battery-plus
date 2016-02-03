@@ -124,7 +124,6 @@ static void prv_initialize_popup(void) {
   // read alert index
   uint8_t alert_index = persist_read_int(WAKE_UP_ALERT_INDEX_KEY);
   persist_delete(WAKE_UP_ALERT_INDEX_KEY);
-  alert_index = 1;
   // get text
   static char buff[16];
   int day = data_api_get_alert_threshold(main_data.data_api, alert_index) / SEC_IN_DAY;
