@@ -535,6 +535,11 @@ static void prv_process_save_state(DataLibrary *data_library, SaveState save_sta
   data_refresh_all_alerts(data_library);
   // send the data to the phone with data logging
   data_logging_log(data_library->data_logging_session, new_node, 1);
+  // update timeline pins
+  if (!persist_exists(PERSIST_TIMELINE_KEY) || persist_read_bool(PERSIST_TIMELINE_KEY)) {
+    // launching the app without any arguments will trigger this
+    worker_launch_app();
+  }
 }
 
 

@@ -12,18 +12,22 @@
 #include "menu.h"
 #include "drawing/windows/edit/pin_window.h"
 #include "drawing/windows/alert/popup_window.h"
+#include "phone.h"
 #include "utility.h"
 
 // Action types
 typedef enum {
   ActionTypePrintRam,
   ActionTypeDataExport,
-  ActionTypeAddAlert
+  ActionTypeAddAlert,
+  ActionTypeEnableTimeline,
+  ActionTypeDisableTimeline,
+  ActionTypeSyncTimeline
 } ActionType;
 
-// Pin window context
+// Alert window context
 typedef struct {
-  DataAPI       *data_api;    //< Pointer to main data library
+  DataAPI       *data_api;        //< Pointer to main data library
   uint8_t       index;            //< Index of alert if editing
   bool          new_alert;        //< If true, create a new alert instead of editing one
 } PinWindowContext;
@@ -132,6 +136,24 @@ static void prv_action_performed_handler(ActionMenu *action_menu, const ActionMe
       pin_window_set_return_callback(window, prv_pin_window_return_handler);
       window_stack_push(window, true);
       break;
+    case ActionTypeEnableTimeline:
+      persist_write_bool(PERSIST_TIMELINE_KEY, true);
+      break;
+    case ActionTypeDisableTimeline:
+      persist_write_bool(PERSIST_TIMELINE_KEY, false);
+      break;
+    case ActionTypeSyncTimeline:;
+      // create popup alert window
+      Window *popup_window = popup_window_create(true);
+      window_set_background_color(popup_window, PBL_IF_BW_ELSE(GColorWhite, GColorVividCerulean));
+      popup_window_set_text(popup_window, "Battery+", "Syncing Timeline");
+      popup_window_set_visual(popup_window, RESOURCE_ID_TIMELINE_SYNC_IMAGE, true);
+      window_stack_push(popup_window, true);
+      // start the pin sending process
+      phone_connect();
+      phone_send_timestamp_to_phone(data_api_get_charge_by_time(context));
+      phone_set_window_close_on_complete(popup_window);
+      break;
   }
 }
 
@@ -149,7 +171,7 @@ static void prv_menu_did_close_handler(ActionMenu *action_menu,
 // Show the action menu
 void menu_show(DataAPI *data_api) {
   // create root level
-  s_root_level = action_menu_level_create(2);
+  s_root_level = action_menu_level_create(3);
   // create data level
   s_data_level = action_menu_level_create(2);
   action_menu_level_add_child(s_root_level, s_data_level, "Data");
@@ -177,8 +199,20 @@ void menu_show(DataAPI *data_api) {
   }
   if (alert_count < DATA_ALERT_MAX_COUNT) {
     action_menu_level_add_action(s_alert_level, "Add Alert", prv_action_performed_handler,
-      (void *) ActionTypeAddAlert);
+      (void*)ActionTypeAddAlert);
   }
+  // create timeline level
+  s_data_level = action_menu_level_create(2);
+  action_menu_level_add_child(s_root_level, s_data_level, "Timeline");
+  if (!persist_exists(PERSIST_TIMELINE_KEY) || persist_read_bool(PERSIST_TIMELINE_KEY)) {
+    action_menu_level_add_action(s_data_level, "Disable Pins", prv_action_performed_handler,
+      (void*)ActionTypeDisableTimeline);
+  } else {
+    action_menu_level_add_action(s_data_level, "Enable Pins", prv_action_performed_handler,
+      (void*)ActionTypeEnableTimeline);
+  }
+  action_menu_level_add_action(s_data_level, "Sync Now", prv_action_performed_handler,
+    (void*)ActionTypeSyncTimeline);
   // configure action menu
   ActionMenuConfig config = (ActionMenuConfig) {
     .root_level = s_root_level,

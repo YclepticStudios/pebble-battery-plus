@@ -10,7 +10,7 @@
     "watchface": false
   },
   "appKeys": {
-    "dummy": 0
+    "KEY_CHARGE_BY": 837502
   },
   "resources": {
     "media": [
@@ -23,6 +23,11 @@
         "type": "raw",
         "name": "LOW_BATTERY_IMAGE",
         "file": "low_battery.pdc"
+      },
+      {
+        "type": "raw",
+        "name": "TIMELINE_SYNC_IMAGE",
+        "file": "timeline_sync.pdc"
       },
       {
         "type": "raw",

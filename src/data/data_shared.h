@@ -29,6 +29,7 @@
 #define WAKE_UP_ALERT_INDEX_KEY 997     //< Persistent storage key for alerts
 #define TEMP_COMMUNICATION_KEY 996      //< Key used when writing data for the foreground
 #define TEMP_LOCK_KEY 995               //< Key used when writing data for the foreground
+#define PERSIST_TIMELINE_KEY 994        //< Persistent storage key where timeline enabled is stored
 #define DATA_LOGGING_TAG 5155346        //< Tag used to identify data once on phone
 
 //! Data structure for foreground

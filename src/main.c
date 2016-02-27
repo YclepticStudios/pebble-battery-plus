@@ -12,6 +12,7 @@
 #include "drawing/drawing.h"
 #include "menu.h"
 #include "drawing/windows/alert/popup_window.h"
+#include "phone.h"
 #include "utility.h"
 
 // Main constants
@@ -115,6 +116,24 @@ static void prv_worker_message_handler(uint16_t type, AppWorkerMessage *data) {
 // Loading and Unloading
 //
 
+// Initialize the pin pushing window
+static void prv_initialize_pin_pushing_window(void) {
+  // load data
+  if (!main_data.data_api) {
+    main_data.data_api = data_api_initialize();
+  }
+  // create popup alert window
+  Window *popup_window = popup_window_create(true);
+  window_set_background_color(popup_window, PBL_IF_BW_ELSE(GColorWhite, GColorVividCerulean));
+  popup_window_set_text(popup_window, "Battery+", "Syncing Timelines");
+  popup_window_set_visual(popup_window, RESOURCE_ID_TIMELINE_SYNC_IMAGE, true);
+  window_stack_push(popup_window, true);
+  // start the pin sending process
+  phone_connect();
+  phone_send_timestamp_to_phone(data_api_get_charge_by_time(main_data.data_api));
+  phone_set_window_close_on_complete(popup_window);
+}
+
 // Initialize the popup window
 static void prv_initialize_popup(void) {
   // load data
@@ -202,7 +221,12 @@ int main(void) {
   memset(&main_data, 0, sizeof(main_data));
   // check launch reason
   if (launch_reason() == APP_LAUNCH_WORKER) {
-    prv_initialize_popup();
+    // either launch the popup or the sync screen
+    if (persist_exists(WAKE_UP_ALERT_INDEX_KEY)) {
+      prv_initialize_popup();
+    } else {
+      prv_initialize_pin_pushing_window();
+    }
   } else {
     prv_initialize_main();
   }
