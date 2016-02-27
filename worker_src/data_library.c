@@ -26,6 +26,8 @@
 // Thresholds
 #define CHARGING_MIN_LENGTH 60          //< Minimum duration while charging to register (sec)
 #define DISCHARGING_MIN_FRACTION 1 / 10 //< Minimum fraction of default run time to register
+// Offsets
+#define BATTERY_PERCENTAGE_OFFSET 10    //< Percentage to add to the battery to increase accuracy
 
 
 // AppTimer custom data struct
@@ -255,7 +257,7 @@ static DataNode prv_get_current_data_node(DataLibrary *data_library) {
   BatteryChargeState bat_state = battery_state_service_peek();
   DataNode fake_node = (DataNode) {
     .epoch = time(NULL),
-    .percent = bat_state.charge_percent,
+    .percent = bat_state.charge_percent + BATTERY_PERCENTAGE_OFFSET,
     .charging = bat_state.is_charging,
     .plugged = bat_state.is_plugged,
     .charge_rate = prv_get_default_charge_rate()
@@ -927,13 +929,13 @@ void data_process_new_battery_state(DataLibrary *data_library,
                                     BatteryChargeState battery_state) {
   // check if duplicate of last point
   DataNode *last_node = prv_list_get_data_node(data_library, 0);
-  if (last_node && battery_state.charge_percent == last_node->percent &&
+  if (last_node && battery_state.charge_percent + BATTERY_PERCENTAGE_OFFSET == last_node->percent &&
       battery_state.is_charging == last_node->charging &&
       battery_state.is_plugged == last_node->plugged) { return; }
   // create SaveState from BatteryChargeState
   SaveState save_state = (SaveState) {
     .epoch = time(NULL) - DATA_EPOCH_OFFSET,
-    .percent = battery_state.charge_percent,
+    .percent = battery_state.charge_percent + BATTERY_PERCENTAGE_OFFSET,
     .charging = battery_state.is_charging,
     .plugged = battery_state.is_plugged,
     .contiguous = data_library->data_is_contiguous
