@@ -10,6 +10,7 @@
 // @bug No known bugs
 
 #include "menu.h"
+#include "data/data_shared.h"
 #include "drawing/windows/edit/pin_window.h"
 #include "drawing/windows/alert/popup_window.h"
 #include "phone.h"
@@ -17,7 +18,7 @@
 
 // Action types
 typedef enum {
-  ActionTypePrintRam,
+  ActionTypeResetRecord,
   ActionTypeDataExport,
   ActionTypeAddAlert,
   ActionTypeEnableTimeline,
@@ -115,8 +116,9 @@ static void prv_action_performed_handler(ActionMenu *action_menu, const ActionMe
   ActionType action_type = (ActionType)action_menu_item_get_action_data(item);
   // perform action
   switch (action_type) {
-    case ActionTypePrintRam:
-      printf("Free RAM: %d", (int)heap_bytes_free());
+    case ActionTypeResetRecord:
+      persist_delete(PERSIST_RECORD_LIFE_KEY);
+      data_api_reload(context);
       break;
     case ActionTypeDataExport:
       // TODO: Add busy screen when printing
@@ -175,10 +177,10 @@ void menu_show(DataAPI *data_api) {
   // create data level
   s_data_level = action_menu_level_create(2);
   action_menu_level_add_child(s_root_level, s_data_level, "Data");
-  action_menu_level_add_action(s_data_level, "Print RAM", prv_action_performed_handler,
-    (void*)ActionTypePrintRam);
   action_menu_level_add_action(s_data_level, "Export", prv_action_performed_handler,
     (void*)ActionTypeDataExport);
+  action_menu_level_add_action(s_data_level, "Reset Record\nBattery Life",
+    prv_action_performed_handler, (void*) ActionTypeResetRecord);
   // create alert level
   int days, hours;
   uint8_t alert_count = data_api_get_alert_count(data_api);
