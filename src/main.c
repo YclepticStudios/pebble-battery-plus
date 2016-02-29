@@ -125,7 +125,7 @@ static void prv_initialize_pin_pushing_window(void) {
   // create popup alert window
   Window *popup_window = popup_window_create(true);
   window_set_background_color(popup_window, PBL_IF_BW_ELSE(GColorWhite, GColorVividCerulean));
-  popup_window_set_text(popup_window, "Battery+", "Syncing Timelines");
+  popup_window_set_text(popup_window, "Battery+", "Pushing Pins");
   popup_window_set_visual(popup_window, RESOURCE_ID_TIMELINE_SYNC_IMAGE, true);
   window_stack_push(popup_window, true);
   // start the pin sending process

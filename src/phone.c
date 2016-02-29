@@ -12,11 +12,12 @@
 
 // Constants
 #define KEY_CHARGE_BY 837502
-#define MESSAGE_RESEND_DELAY_MS 100
+#define MESSAGE_RESEND_DELAY_MS 500
 #define MESSAGE_RESEND_MAX_ATTEMPTS 5
+#define WINDOW_FORCE_CLOSE_TIME 3000
 
 // AppTimer for resending failed messages
-static AppTimer *app_timer = NULL;
+static AppTimer *app_timer = NULL, *close_timer = NULL;
 static uint8_t send_fail_count = 0;
 static Window *window_close_on_complete = NULL;
 
@@ -26,16 +27,17 @@ static Window *window_close_on_complete = NULL;
 //
 
 // Close all windows and exit the program
-static void prv_exit_app(void) {
+static void prv_exit_app(void *data) {
+  // destroy timers
+  app_timer_cancel(app_timer);
+  app_timer_cancel(close_timer);
+  app_timer = NULL;
+  close_timer = NULL;
+  // close window
   phone_disconnect();
   window_stack_remove(window_close_on_complete, true);
   window_close_on_complete = NULL;
 }
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// Callbacks
-//
 
 // AppTimer callback
 static void prv_app_timer_callback(void *data) {
@@ -46,14 +48,14 @@ static void prv_app_timer_callback(void *data) {
     phone_send_timestamp_to_phone((int32_t)data);
   } else {
     send_fail_count = 0;
-    prv_exit_app();
+    prv_exit_app(NULL);
   }
 }
 
 // AppMessage inbox received callback
 static void prv_inbox_received_callback(DictionaryIterator *iterator, void *context) {
   // for now there is only one thing this will do, so no need to check for a key
-  prv_exit_app();
+  prv_exit_app(NULL);
 }
 
 // AppMessage sent callback
@@ -65,7 +67,7 @@ static void prv_outbox_sent_callback(DictionaryIterator *iterator, void *context
 // AppMessage inbox dropped callback
 static void prv_inbox_dropped_callback(AppMessageResult reason, void *context) {
   APP_LOG(APP_LOG_LEVEL_ERROR, "Inbox message dropped!");
-  prv_exit_app();
+  prv_exit_app(NULL);
 }
 
 // AppMessage outbox send failed callback
@@ -87,6 +89,7 @@ static void prv_outbox_failed_callback(DictionaryIterator *iterator, AppMessageR
 // Close window when sending is complete or timed out
 void phone_set_window_close_on_complete(Window *window) {
   window_close_on_complete = window;
+  app_timer_register(WINDOW_FORCE_CLOSE_TIME, prv_exit_app, NULL);
 }
 
 // Send timestamp to phone
@@ -115,7 +118,8 @@ void phone_connect(void) {
   app_message_register_inbox_dropped(prv_inbox_dropped_callback);
   app_message_register_outbox_failed(prv_outbox_failed_callback);
   // open AppMessage
-  app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Ram: %d", (int)heap_bytes_free());
+  app_message_open(APP_MESSAGE_INBOX_SIZE_MINIMUM, APP_MESSAGE_OUTBOX_SIZE_MINIMUM);
 }
 
 //! Terminate AppMessage communication with the phone

@@ -144,11 +144,14 @@ static void prv_action_performed_handler(ActionMenu *action_menu, const ActionMe
     case ActionTypeDisableTimeline:
       persist_write_bool(PERSIST_TIMELINE_KEY, false);
       break;
-    case ActionTypeSyncTimeline:;
+    case ActionTypeSyncTimeline:
+      // destroy action menu before syncing, else too little ram to connect to phone
+      action_menu_hierarchy_destroy(s_root_level, NULL, NULL);
+      s_action_menu = NULL;
       // create popup alert window
       Window *popup_window = popup_window_create(true);
       window_set_background_color(popup_window, PBL_IF_BW_ELSE(GColorWhite, GColorVividCerulean));
-      popup_window_set_text(popup_window, "Battery+", "Syncing Timeline");
+      popup_window_set_text(popup_window, "Battery+", "Pushing Pins");
       popup_window_set_visual(popup_window, RESOURCE_ID_TIMELINE_SYNC_IMAGE, true);
       window_stack_push(popup_window, true);
       // start the pin sending process
@@ -162,7 +165,9 @@ static void prv_action_performed_handler(ActionMenu *action_menu, const ActionMe
 // Menu did close callback
 static void prv_menu_did_close_handler(ActionMenu *action_menu,
                                        const ActionMenuItem *performed_action, void *context) {
-  action_menu_hierarchy_destroy(s_root_level, NULL, NULL);
+  if (s_action_menu) {
+    action_menu_hierarchy_destroy(s_root_level, NULL, NULL);
+  }
 }
 
 
