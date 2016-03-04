@@ -26,8 +26,6 @@
 // Thresholds
 #define CHARGING_MIN_LENGTH 60          //< Minimum duration while charging to register (sec)
 #define DISCHARGING_MIN_FRACTION 1 / 10 //< Minimum fraction of default run time to register
-// Offsets
-#define BATTERY_PERCENTAGE_OFFSET 10    //< Percentage to add to the battery to increase accuracy
 
 
 // AppTimer custom data struct

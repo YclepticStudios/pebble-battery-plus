@@ -18,9 +18,10 @@
 
 
 //! Constants
-#define DATA_ALERT_MAX_COUNT 4      //< The maximum number of alerts to allow
-#define CHARGE_CYCLE_MAX_COUNT 9    //< The maximum number of charge cycles to load
-#define DATA_POINT_MAX_COUNT 50     //< The maximum number of data points to load
+#define DATA_ALERT_MAX_COUNT 4          //< The maximum number of alerts to allow
+#define CHARGE_CYCLE_MAX_COUNT 9        //< The maximum number of charge cycles to load
+#define DATA_POINT_MAX_COUNT 50         //< The maximum number of data points to load
+#define BATTERY_PERCENTAGE_OFFSET 10    //< Percentage to add to the battery to increase accuracy
 
 //! Persistent Keys
 #define PERSIST_DATA_KEY 1000           //< The persistent storage key where the data write starts
