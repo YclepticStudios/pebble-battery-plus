@@ -121,7 +121,11 @@ static void prv_render_ring(GContext *ctx, GRect bounds, DataAPI *data_api) {
   uint8_t angle_count = 0;
   int32_t angles[DATA_ALERT_MAX_COUNT + 2];
   // calculate angles
-  angles[angle_count++] = TRIG_MAX_ANGLE * data_api_get_battery_percent(data_api) / 100;
+  angles[angle_count++] = TRIG_MAX_ANGLE * (int64_t)data_api_get_life_remaining(data_api) /
+    max_life_sec;
+  if (angles[0] > TRIG_MAX_ANGLE || angles[0] < 0) {
+    angles[0] = TRIG_MAX_ANGLE * data_api_get_battery_percent(data_api) / 100;
+  }
   angles[angle_count++] = 0;
   for (uint8_t index = 0; index < data_api_get_alert_count(data_api); index++) {
     angles[angle_count] = TRIG_MAX_ANGLE * (int64_t)data_api_get_alert_threshold(data_api, index) /

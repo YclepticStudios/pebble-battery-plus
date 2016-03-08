@@ -160,7 +160,6 @@ uint8_t data_api_get_battery_percent(DataAPI *data_api) {
   // restrict it to a valid range
   BatteryChargeState battery_state = battery_state_service_peek();
   battery_state.charge_percent += BATTERY_PERCENTAGE_OFFSET;
-  printf("Percent: %d", battery_state.charge_percent);
   if (percent > battery_state.charge_percent) {
     percent = battery_state.charge_percent;
   } else if (percent <= battery_state.charge_percent - 10) {
