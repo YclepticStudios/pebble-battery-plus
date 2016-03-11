@@ -72,6 +72,8 @@ static void prv_render_image(GContext *ctx, GRect bounds, DataAPI *data_api) {
     bounds = grect_inset(bounds, GEdgeInsets2(0, (bounds.size.w - image_size.w) / 2));
     // draw image
     gdraw_command_image_draw(ctx, command_image, bounds.origin);
+    // clean up image
+    gdraw_command_image_destroy(command_image);
   }
 }
 
