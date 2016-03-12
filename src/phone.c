@@ -14,7 +14,7 @@
 #define KEY_CHARGE_BY 837502
 #define MESSAGE_RESEND_DELAY_MS 500
 #define MESSAGE_RESEND_MAX_ATTEMPTS 5
-#define WINDOW_FORCE_CLOSE_TIME 3000
+#define WINDOW_FORCE_CLOSE_TIME 7000
 
 // AppTimer for resending failed messages
 static AppTimer *app_timer = NULL, *close_timer = NULL;
