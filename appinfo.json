@@ -15,6 +15,12 @@
   "resources": {
     "media": [
       {
+        "file": "icon.png",
+        "menuIcon": true,
+        "name": "IMAGE_ICON",
+        "type": "bitmap"
+      },
+      {
         "type": "raw",
         "name": "CUP_IMAGE",
         "file": "cup.pdc"
