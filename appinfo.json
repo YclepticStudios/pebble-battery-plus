@@ -3,9 +3,9 @@
   "shortName": "Battery+",
   "longName": "Battery+",
   "companyName": "Ycleptic Studios",
-  "versionLabel": "2.0",
+  "versionLabel": "2.1",
   "sdkVersion": "3",
-  "targetPlatforms": ["aplite", "basalt", "chalk"],
+  "targetPlatforms": ["aplite", "basalt", "chalk", "diorite"],
   "watchapp": {
     "watchface": false
   },
